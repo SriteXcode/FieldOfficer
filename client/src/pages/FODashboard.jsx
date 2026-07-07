@@ -248,8 +248,8 @@ export default function FODashboard({ user, onLogout }) {
         const lngOffset = (Math.random() - 0.5) * 0.005;
         resolve({
           coords: {
-            latitude: 26.8894 + latOffset,
-            longitude: 80.9388 + lngOffset,
+            latitude: 12.9716 + latOffset,
+            longitude: 77.5946 + lngOffset,
             accuracy: 8
           }
         });
@@ -269,13 +269,13 @@ export default function FODashboard({ user, onLogout }) {
             navigator.geolocation.getCurrentPosition(
               resolve,
               reject,
-              { enableHighAccuracy: false, timeout: 15000 }
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
             );
           } else {
             reject(err);
           }
         },
-        { enableHighAccuracy: true, timeout: 12000 }
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
       );
     });
   };
@@ -316,8 +316,8 @@ export default function FODashboard({ user, onLogout }) {
     };
 
     if (simulatedMode) {
-      let mockLat = 26.8894;
-      let mockLng = 80.9388;
+      let mockLat = 12.9716;
+      let mockLng = 77.5946;
       
       // Immediate ping
       setCurrentCoords({ lat: mockLat, lng: mockLng });
