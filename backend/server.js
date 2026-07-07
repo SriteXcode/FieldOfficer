@@ -95,7 +95,7 @@ const path = require("path");
 const fs = require("fs");
 
 // Serve static assets in production or if the client build exists
-const clientDistPath = path.join(__dirname, "../client/dist");
+const clientDistPath = path.join(__dirname, "public");
 const clientIndexHtml = path.join(clientDistPath, "index.html");
 
 if (process.env.NODE_ENV === "production" || fs.existsSync(clientIndexHtml)) {

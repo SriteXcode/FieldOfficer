@@ -1,0 +1,12 @@
+{
+  "name": "field-officer-tracker-root",
+  "version": "1.0.0",
+  "description": "Root orchestrator for Field Officer Tracker PWA",
+  "scripts": {
+    "install-backend": "npm install --prefix backend",
+    "install-client": "npm install --prefix client",
+    "install-all": "npm run install-backend && npm run install-client",
+    "build": "cd client && npm install && npm run build",
+    "start": "cd backend && npm start"
+  }
+}
