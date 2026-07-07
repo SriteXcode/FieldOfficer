@@ -715,10 +715,9 @@ export default function FODashboard({ user, onLogout }) {
 
               {/* Consumer Address */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Consumer Target Address *</label>
+                <label className="text-[11px] font-semibold text-slate-400">Consumer Target Address (Optional)</label>
                 <input
                   type="text"
-                  required
                   placeholder="Address as listed on file"
                   value={consumerAddress}
                   onChange={(e) => setConsumerAddress(e.target.value)}

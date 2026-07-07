@@ -25,12 +25,13 @@ async function logVisit(req, res) {
       browser 
     } = req.body;
 
-    if (!consumerName || !consumerAddress || latitude === undefined || longitude === undefined) {
-      return res.status(400).json({ error: "Consumer name, address, and coordinates are required." });
+    if (!consumerName || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: "Consumer name and coordinates are required." });
     }
 
     // Verify address
     const detectedAddress = await reverseGeocode(latitude, longitude);
+    const finalConsumerAddress = consumerAddress || detectedAddress;
 
     const supervisorId = req.user.supervisorId;
     if (!supervisorId) {
@@ -47,7 +48,7 @@ async function logVisit(req, res) {
         supervisorId,
         consumerName,
         consumerPhone,
-        consumerAddress,
+        consumerAddress: finalConsumerAddress,
         location: { latitude, longitude },
         detectedAddress,
         timestamp: now,
@@ -70,7 +71,7 @@ async function logVisit(req, res) {
         supervisorId,
         consumerName,
         consumerPhone,
-        consumerAddress,
+        consumerAddress: finalConsumerAddress,
         location: { latitude, longitude },
         detectedAddress,
         timestamp: now.toISOString(),

@@ -6,7 +6,7 @@ const VisitSchema = new mongoose.Schema(
     supervisorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     consumerName: { type: String, required: true },
     consumerPhone: { type: String },
-    consumerAddress: { type: String, required: true },
+    consumerAddress: { type: String, default: "" },
     location: {
       latitude: { type: Number, required: true },
       longitude: { type: Number, required: true },
