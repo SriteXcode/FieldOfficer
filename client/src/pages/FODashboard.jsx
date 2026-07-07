@@ -248,8 +248,8 @@ export default function FODashboard({ user, onLogout }) {
         const lngOffset = (Math.random() - 0.5) * 0.005;
         resolve({
           coords: {
-            latitude: 12.9716 + latOffset,
-            longitude: 77.5946 + lngOffset,
+            latitude: 26.8467 + latOffset,
+            longitude: 80.9462 + lngOffset,
             accuracy: 8
           }
         });
@@ -316,8 +316,8 @@ export default function FODashboard({ user, onLogout }) {
     };
 
     if (simulatedMode) {
-      let mockLat = 12.9716;
-      let mockLng = 77.5946;
+      let mockLat = 26.8467;
+      let mockLng = 80.9462;
       
       // Immediate ping
       setCurrentCoords({ lat: mockLat, lng: mockLng });

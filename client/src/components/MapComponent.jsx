@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 
 export default function MapComponent({ 
-  center = [12.9716, 77.5946], 
+  center = [26.8467, 80.9462], 
   zoom = 13, 
   markers = [], 
   polyline = [], 

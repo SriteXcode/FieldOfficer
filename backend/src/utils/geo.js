@@ -48,16 +48,8 @@ async function reverseGeocode(lat, lon) {
     console.error("OSM Reverse Geocoding failed:", err);
   }
 
-  // Fallback to local simulated locations
-  const mockAddresses = [
-    "Office Headquarters, MG Road, Ashok Nagar, Bengaluru",
-    "Customer Hub, Sector 4, HSR Layout, Bengaluru",
-    "Commercial Street, Tasker Town, Shivaji Nagar, Bengaluru",
-    "Residential Complex, HAL 2nd Stage, Indiranagar, Bengaluru",
-    "Tech Park East Entrance, Outer Ring Road, Mahadevapura, Bengaluru"
-  ];
-  const idx = Math.abs(Math.floor(lat * 1000 + lon * 1000)) % mockAddresses.length;
-  return `${mockAddresses[idx]} (Near ${lat.toFixed(5)}, ${lon.toFixed(5)})`;
+  // No mock address fallback. Just return the raw coordinates if the API is offline/rate-limited.
+  return `GPS Coords: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 }
 
 module.exports = {
