@@ -1,0 +1,56 @@
+[
+  {
+    "_id": "att_john_today",
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "checkIn": {
+      "time": "2026-07-07T03:45:00.000Z",
+      "latitude": 12.97159,
+      "longitude": 77.59456,
+      "address": "Office Headquarters, MG Road, Bengaluru",
+      "battery": 94,
+      "network": "Wifi",
+      "accuracy": 8,
+      "device": "Android Mobile",
+      "browser": "Chrome"
+    },
+    "checkOut": {
+      "time": "2026-07-07T12:15:00.000Z",
+      "latitude": 12.9304,
+      "longitude": 77.6226,
+      "address": "Consumer Hub Office, Koramangala, Bengaluru",
+      "battery": 42,
+      "network": "4G",
+      "accuracy": 12,
+      "device": "Android Mobile",
+      "browser": "Chrome"
+    },
+    "status": "Present",
+    "workingHours": 510,
+    "distanceCovered": 24.5,
+    "createdAt": "2026-07-07T03:45:00.000Z",
+    "updatedAt": "2026-07-07T12:15:00.000Z"
+  },
+  {
+    "_id": "att_sarah_today",
+    "userId": "fo_sarah",
+    "date": "2026-07-07",
+    "checkIn": {
+      "time": "2026-07-07T04:15:00.000Z",
+      "latitude": 12.97159,
+      "longitude": 77.59456,
+      "address": "Office Headquarters, MG Road, Bengaluru",
+      "battery": 88,
+      "network": "4G",
+      "accuracy": 10,
+      "device": "iPhone 13 Mobile",
+      "browser": "Safari"
+    },
+    "checkOut": null,
+    "status": "Late",
+    "workingHours": 0,
+    "distanceCovered": 12.8,
+    "createdAt": "2026-07-07T04:15:00.000Z",
+    "updatedAt": "2026-07-07T04:15:00.000Z"
+  }
+]

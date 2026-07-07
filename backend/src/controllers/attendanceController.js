@@ -1,0 +1,296 @@
+const Attendance = require("../models/Attendance.js");
+const User = require("../models/User.js");
+const Setting = require("../models/Setting.js");
+const LiveLocation = require("../models/LiveLocation.js");
+const { reverseGeocode, calculateDistance } = require("../utils/geo.js");
+const { logAction } = require("../utils/audit.js");
+const { getMockData, saveMockData, connectToDatabase } = require("../config/db.js");
+
+async function checkInOrOut(req, res) {
+  try {
+    if (req.user.role !== "Field Officer") {
+      return res.status(403).json({ error: "Only Field Officers can record attendance." });
+    }
+
+    const { type, latitude, longitude, accuracy, battery, network, device, browser } = req.body;
+
+    if (type !== "checkIn" && type !== "checkOut") {
+      return res.status(400).json({ error: "Invalid type. Must be checkIn or checkOut." });
+    }
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: "GPS coordinates are required." });
+    }
+
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // Reverse geocode
+    const address = await reverseGeocode(latitude, longitude);
+
+    // Settings Timing checks
+    let officeStart = "09:00 AM";
+    let lateAfter = "09:30 AM";
+    let officeEnd = "06:00 PM";
+
+    if (req.user.supervisorId) {
+      try {
+        await connectToDatabase();
+        const settings = await Setting.findOne({ supervisorId: req.user.supervisorId });
+        if (settings) {
+          officeStart = settings.officeStart;
+          lateAfter = settings.lateAfter;
+          officeEnd = settings.officeEnd;
+        }
+      } catch (e) {
+        const mockSettings = getMockData("Setting");
+        const settings = mockSettings.find(s => s.supervisorId === req.user.supervisorId);
+        if (settings) {
+          officeStart = settings.officeStart;
+          lateAfter = settings.lateAfter;
+          officeEnd = settings.officeEnd;
+        }
+      }
+    }
+
+    const [lateHourStr, lateMinStr] = lateAfter.split(" ")[0].split(":");
+    const isLatePM = lateAfter.includes("PM");
+    let lateHour = parseInt(lateHourStr);
+    if (isLatePM && lateHour < 12) lateHour += 12;
+    if (!isLatePM && lateHour === 12) lateHour = 0;
+    const lateMinute = parseInt(lateMinStr);
+
+    const lateThresholdToday = new Date(now);
+    lateThresholdToday.setHours(lateHour, lateMinute, 0, 0);
+
+    const isLate = now > lateThresholdToday;
+
+    const locationDetail = {
+      time: now.toISOString(),
+      latitude,
+      longitude,
+      address,
+      battery,
+      network,
+      accuracy,
+      device: device || "Unknown Device",
+      browser: browser || "Unknown Browser"
+    };
+
+    let result = null;
+
+    if (type === "checkIn") {
+      let alreadyCheckedIn = false;
+      try {
+        await connectToDatabase();
+        const existing = await Attendance.findOne({ userId: req.user.id, date: dateStr });
+        if (existing) alreadyCheckedIn = true;
+      } catch (e) {
+        const mockAttendance = getMockData("Attendance");
+        alreadyCheckedIn = mockAttendance.some(a => a.userId === req.user.id && a.date === dateStr);
+      }
+
+      if (alreadyCheckedIn) {
+        return res.status(400).json({ error: "Already checked in today." });
+      }
+
+      try {
+        await connectToDatabase();
+        result = await Attendance.create({
+          userId: req.user.id,
+          date: dateStr,
+          checkIn: locationDetail,
+          checkOut: null,
+          status: isLate ? "Late" : "Present",
+        });
+      } catch (e) {
+        const mockAttendance = getMockData("Attendance");
+        const newAttendance = {
+          _id: `att_${Date.now()}`,
+          id: `att_${Date.now()}`,
+          userId: req.user.id,
+          date: dateStr,
+          checkIn: locationDetail,
+          checkOut: null,
+          status: isLate ? "Late" : "Present",
+          workingHours: 0,
+          distanceCovered: 0,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString()
+        };
+        mockAttendance.push(newAttendance);
+        saveMockData("Attendance", mockAttendance);
+        result = newAttendance;
+      }
+
+      await logAction({
+        userId: req.user.id,
+        action: "Check-in",
+        details: `Field Officer checked in at ${address}. Status: ${isLate ? "Late" : "Present"}. Accuracy: ${accuracy}m`,
+        req
+      });
+
+    } else {
+      // Check-out
+      let attendanceRecord = null;
+      try {
+        await connectToDatabase();
+        attendanceRecord = await Attendance.findOne({ userId: req.user.id, date: dateStr });
+      } catch (e) {
+        const mockAttendance = getMockData("Attendance");
+        attendanceRecord = mockAttendance.find(a => a.userId === req.user.id && a.date === dateStr);
+      }
+
+      if (!attendanceRecord) {
+        return res.status(400).json({ error: "No check-in record found for today." });
+      }
+
+      if (attendanceRecord.checkOut) {
+        return res.status(400).json({ error: "Already checked out today." });
+      }
+
+      const checkInTime = new Date(attendanceRecord.checkIn.time);
+      const workingHours = Math.round((now.getTime() - checkInTime.getTime()) / (1000 * 60));
+
+      let distanceCovered = 0;
+      let pathPoints = [];
+      try {
+        await connectToDatabase();
+        pathPoints = await LiveLocation.find({ userId: req.user.id, date: dateStr }).sort({ timestamp: 1 });
+      } catch (e) {
+        const mockLocations = getMockData("LiveLocation");
+        pathPoints = mockLocations
+          .filter(l => l.userId === req.user.id && l.date === dateStr)
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      }
+
+      let currentLat = attendanceRecord.checkIn.latitude;
+      let currentLng = attendanceRecord.checkIn.longitude;
+      for (const pt of pathPoints) {
+        distanceCovered += calculateDistance(currentLat, currentLng, pt.latitude, pt.longitude);
+        currentLat = pt.latitude;
+        currentLng = pt.longitude;
+      }
+      distanceCovered += calculateDistance(currentLat, currentLng, latitude, longitude);
+      distanceCovered = Number(distanceCovered.toFixed(2));
+
+      try {
+        await connectToDatabase();
+        result = await Attendance.findOneAndUpdate(
+          { userId: req.user.id, date: dateStr },
+          {
+            checkOut: locationDetail,
+            workingHours,
+            distanceCovered,
+            status: attendanceRecord.status === "Late" ? "Late" : "Present"
+          },
+          { new: true }
+        );
+      } catch (e) {
+        const mockAttendance = getMockData("Attendance");
+        const idx = mockAttendance.findIndex(a => a.userId === req.user.id && a.date === dateStr);
+        if (idx !== -1) {
+          mockAttendance[idx].checkOut = locationDetail;
+          mockAttendance[idx].workingHours = workingHours;
+          mockAttendance[idx].distanceCovered = distanceCovered;
+          mockAttendance[idx].updatedAt = now.toISOString();
+          result = mockAttendance[idx];
+          saveMockData("Attendance", mockAttendance);
+        }
+      }
+
+      await logAction({
+        userId: req.user.id,
+        action: "Check-out",
+        details: `Field Officer checked out at ${address}. Worked: ${workingHours}m, Travelled: ${distanceCovered}km`,
+        req
+      });
+    }
+
+    return res.status(200).json({ message: `${type === "checkIn" ? "Check-in" : "Check-out"} successful`, attendance: result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+async function getAttendance(req, res) {
+  try {
+    const { date, userId } = req.query;
+    let queryUserId = req.user.id;
+
+    if (req.user.role === "Field Officer") {
+      queryUserId = req.user.id;
+    } else {
+      if (userId) {
+        let targetUser = null;
+        try {
+          await connectToDatabase();
+          targetUser = await User.findById(userId);
+        } catch (e) {
+          const mockUsers = getMockData("User");
+          targetUser = mockUsers.find(u => u._id === userId || u.id === userId);
+        }
+
+        if (!targetUser || (req.user.role === "Supervisor" && targetUser.supervisorId?.toString() !== req.user.id)) {
+          return res.status(403).json({ error: "Access denied. Field Officer not assigned to you." });
+        }
+        queryUserId = userId;
+      } else {
+        let fosList = [];
+        try {
+          await connectToDatabase();
+          const fos = await User.find({ supervisorId: req.user.id, role: "Field Officer" }).select("_id");
+          fosList = fos.map(f => f._id.toString());
+        } catch (e) {
+          const mockUsers = getMockData("User");
+          fosList = mockUsers
+            .filter(u => u.supervisorId === req.user.id && u.role === "Field Officer")
+            .map(u => u._id || u.id);
+        }
+
+        let attendanceRecords = [];
+        try {
+          await connectToDatabase();
+          const query = { userId: { $in: fosList } };
+          if (date) query.date = date;
+          attendanceRecords = await Attendance.find(query).populate("userId", "name username").lean();
+        } catch (e) {
+          const mockAttendance = getMockData("Attendance");
+          const mockUsers = getMockData("User");
+          attendanceRecords = mockAttendance
+            .filter(a => fosList.includes(a.userId) && (!date || a.date === date))
+            .map(a => {
+              const u = mockUsers.find(user => (user._id || user.id) === a.userId);
+              return {
+                ...a,
+                userId: u ? { _id: u._id || u.id, name: u.name, username: u.username } : a.userId
+              };
+            });
+        }
+        return res.status(200).json({ attendance: attendanceRecords });
+      }
+    }
+
+    let records = [];
+    try {
+      await connectToDatabase();
+      const query = { userId: queryUserId };
+      if (date) query.date = date;
+      records = await Attendance.find(query).sort({ date: -1 }).lean();
+    } catch (e) {
+      const mockAttendance = getMockData("Attendance");
+      records = mockAttendance
+        .filter(a => a.userId === queryUserId && (!date || a.date === date))
+        .sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    return res.status(200).json({ attendance: records });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = {
+  checkInOrOut,
+  getAttendance
+};

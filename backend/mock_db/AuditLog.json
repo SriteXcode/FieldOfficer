@@ -1,0 +1,42 @@
+[
+  {
+    "_id": "audit_log_1",
+    "userId": "fo_john",
+    "action": "Login",
+    "details": "User john logged in successfully",
+    "ip": "192.168.1.42",
+    "device": "Mobile",
+    "browser": "Chrome",
+    "timestamp": "2026-07-07T03:40:12.000Z"
+  },
+  {
+    "_id": "audit_log_2",
+    "userId": "fo_john",
+    "action": "Check-in",
+    "details": "Field Officer checked in at Office Headquarters, MG Road, Bengaluru. Status: Present. Accuracy: 8m",
+    "ip": "192.168.1.42",
+    "device": "Mobile",
+    "browser": "Chrome",
+    "timestamp": "2026-07-07T03:45:00.000Z"
+  },
+  {
+    "_id": "audit_log_3",
+    "userId": "fo_sarah",
+    "action": "Login",
+    "details": "User sarah logged in successfully",
+    "ip": "192.168.1.15",
+    "device": "Mobile",
+    "browser": "Safari",
+    "timestamp": "2026-07-07T04:10:05.000Z"
+  },
+  {
+    "_id": "audit_log_4",
+    "userId": "fo_sarah",
+    "action": "Check-in",
+    "details": "Field Officer checked in at Office Headquarters, MG Road, Bengaluru. Status: Late. Accuracy: 10m",
+    "ip": "192.168.1.15",
+    "device": "Mobile",
+    "browser": "Safari",
+    "timestamp": "2026-07-07T04:15:00.000Z"
+  }
+]

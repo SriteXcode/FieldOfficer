@@ -1,0 +1,793 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import io from 'socket.io-client';
+import { 
+  LogOut, Users, MapPin, CheckCircle, Navigation, PlayCircle, Clock, 
+  Search, ShieldAlert, Sparkles, Send, Settings, BookOpen, Download, AlertTriangle, 
+  MapIcon, Award, Eye, Calendar
+} from 'lucide-react';
+
+import MapComponent from '../components/MapComponent';
+import RouteReplay from '../components/RouteReplay';
+import AnalyticsCharts from '../components/AnalyticsCharts';
+import DashboardWidgets from '../components/DashboardWidgets';
+
+export default function SupervisorDashboard({ user, onLogout }) {
+  // Widget Customization state
+  const [activeWidgets, setActiveWidgets] = useState({
+    stats: true,
+    battery: true,
+    announcements: true,
+  });
+
+  // Selected state for details
+  const [selectedFO, setSelectedFO] = useState(null); // FO user object
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+  const [selectedFoHistory, setSelectedFoHistory] = useState([]); // List of locations
+  const [selectedFoVisits, setSelectedFoVisits] = useState([]); // List of visits
+  const [replayCoord, setReplayCoord] = useState(null); // Active coordinate for replay
+
+  // Operational states
+  const [officers, setOfficers] = useState([]); // Today's live statuses
+  const [announcements, setAnnouncements] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [analytics, setAnalytics] = useState({ officers: [], attendanceSplit: { present: 0, late: 0, pending: 0 } });
+  
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Form states
+  const [annTitle, setAnnTitle] = useState('');
+  const [annContent, setAnnContent] = useState('');
+  const [submittingAnn, setSubmittingAnn] = useState(false);
+  const [settings, setSettings] = useState({
+    officeStart: '09:00 AM',
+    lateAfter: '09:30 AM',
+    officeEnd: '06:00 PM',
+    sessionTimeout: 30
+  });
+  const [submittingSettings, setSubmittingSettings] = useState(false);
+
+  // Map markers & bounds trigger
+  const [mapMarkers, setMapMarkers] = useState([]);
+  const [mapPolyline, setMapPolyline] = useState([]);
+  const [mapBoundsTrigger, setMapBoundsTrigger] = useState(0);
+
+  // Socket
+  useEffect(() => {
+    // Fetch initial datasets
+    fetchLiveOfficers();
+    fetchAnnouncements();
+    fetchAuditLogs();
+    fetchAnalytics();
+    fetchSettings();
+
+    // Setup Socket connection
+    const socket = io('http://localhost:5000');
+    socket.emit('join_room', `supervisor_${user.id}`);
+
+    socket.on('location_update', (data) => {
+      // Real-time location feed
+      setOfficers(prev => prev.map(fo => {
+        if (fo.userId === data.userId) {
+          return {
+            ...fo,
+            lastSeen: data.timestamp,
+            lastLocation: { lat: data.latitude, lng: data.longitude, accuracy: data.accuracy },
+            battery: data.battery,
+            network: data.network,
+            isSuspicious: data.isSuspicious
+          };
+        }
+        return fo;
+      }));
+
+      // If active selected FO is updated, update live marker on map
+      if (selectedFO && selectedFO.userId === data.userId) {
+        setMapMarkers(prev => {
+          const filtered = prev.filter(m => m.type !== 'live');
+          return [
+            ...filtered,
+            {
+              lat: data.latitude,
+              lng: data.longitude,
+              type: 'live',
+              title: `${data.name} (Live)`,
+              time: data.timestamp
+            }
+          ];
+        });
+      }
+    });
+
+    socket.on('new_announcement', (ann) => {
+      setAnnouncements(prev => [ann, ...prev]);
+    });
+
+    // Refresh live list every 60 seconds
+    const interval = setInterval(fetchLiveOfficers, 60000);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(interval);
+    };
+  }, [user.id]);
+
+  // Handle selected FO changes or date changes
+  useEffect(() => {
+    if (selectedFO) {
+      fetchFoHistoryDetails();
+    } else {
+      // No FO selected, show all checked in officers as live markers
+      const liveMarkers = officers
+        .filter(fo => fo.lastLocation)
+        .map(fo => ({
+          lat: fo.lastLocation.lat,
+          lng: fo.lastLocation.lng,
+          type: 'live',
+          title: fo.name,
+          time: fo.lastSeen
+        }));
+      setMapMarkers(liveMarkers);
+      setMapPolyline([]);
+    }
+  }, [selectedFO, selectedDate, officers]);
+
+  const fetchLiveOfficers = async () => {
+    try {
+      const res = await axios.get('/api/locations/live-officers');
+      setOfficers(res.data.officers);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await axios.get('/api/announcements');
+      setAnnouncements(res.data.announcements);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await axios.get('/api/reports/audit-logs');
+      setAuditLogs(res.data.logs);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const res = await axios.get('/api/reports/analytics');
+      setAnalytics(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await axios.get('/api/settings');
+      if (res.data && res.data.settings) {
+        setSettings(res.data.settings);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Fetch coordinates history and visits timeline for an officer on a specific day
+  const fetchFoHistoryDetails = async () => {
+    try {
+      // 1. Fetch tracking path
+      const pathRes = await axios.get(`/api/locations/history?userId=${selectedFO.userId}&date=${selectedDate}`);
+      const locations = pathRes.data.locations;
+      setSelectedFoHistory(locations);
+
+      // 2. Fetch visits
+      const visitsRes = await axios.get(`/api/visits?userId=${selectedFO.userId}&date=${selectedDate}`);
+      const visits = visitsRes.data.visits;
+      setSelectedFoVisits(visits);
+
+      // 3. Fetch attendance checkIn/out for that date
+      const attRes = await axios.get(`/api/attendance?userId=${selectedFO.userId}&date=${selectedDate}`);
+      const dayAtt = attRes.data.attendance && attRes.data.attendance.length > 0 ? attRes.data.attendance[0] : null;
+
+      // 4. Construct map markers
+      const markers = [];
+      const polyline = [];
+
+      if (dayAtt && dayAtt.checkIn) {
+        markers.push({
+          lat: dayAtt.checkIn.latitude,
+          lng: dayAtt.checkIn.longitude,
+          type: 'checkIn',
+          title: 'Shift Check-In',
+          time: dayAtt.checkIn.time,
+          address: dayAtt.checkIn.address
+        });
+        polyline.push([dayAtt.checkIn.latitude, dayAtt.checkIn.longitude]);
+      }
+
+      // Add consumer stops
+      visits.forEach((v, idx) => {
+        markers.push({
+          lat: v.location.latitude,
+          lng: v.location.longitude,
+          type: 'stop',
+          index: idx + 1,
+          title: `Stop ${idx + 1}: ${v.consumerName}`,
+          time: v.timestamp,
+          address: v.detectedAddress,
+          comment: v.comment,
+          photo: v.photo
+        });
+      });
+
+      // Add coordinates tracking lines
+      locations.forEach(pt => {
+        polyline.push([pt.latitude, pt.longitude]);
+      });
+
+      if (dayAtt && dayAtt.checkOut) {
+        markers.push({
+          lat: dayAtt.checkOut.latitude,
+          lng: dayAtt.checkOut.longitude,
+          type: 'checkOut',
+          title: 'Shift Check-Out',
+          time: dayAtt.checkOut.time,
+          address: dayAtt.checkOut.address
+        });
+        polyline.push([dayAtt.checkOut.latitude, dayAtt.checkOut.longitude]);
+      }
+
+      setMapMarkers(markers);
+      setMapPolyline(polyline);
+      setMapBoundsTrigger(prev => prev + 1); // trigger auto map zoom/fit
+    } catch (e) {
+      console.error("Failed to load history metrics", e);
+    }
+  };
+
+  // Broadcast announcements
+  const handleAnnSubmit = async (e) => {
+    e.preventDefault();
+    if (!annTitle || !annContent) return;
+    setSubmittingAnn(true);
+    try {
+      await axios.post('/api/announcements', { title: annTitle, content: annContent });
+      setAnnTitle('');
+      setAnnContent('');
+      fetchAnnouncements();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmittingAnn(false);
+    }
+  };
+
+  // Update timing rules
+  const handleSettingsSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingSettings(true);
+    try {
+      await axios.post('/api/settings', settings);
+      fetchSettings();
+      alert("Settings updated successfully!");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmittingSettings(false);
+    }
+  };
+
+  // CSV Report Generator
+  const handleExportCSV = () => {
+    if (officers.length === 0) return;
+    
+    // Construct CSV Header
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Officer Name,Date,Status,Working Hours (Mins),Distance Covered (KM),Last Active,Battery %,Network Type\r\n";
+
+    officers.forEach(fo => {
+      const lastActive = fo.lastSeen ? new Date(fo.lastSeen).toLocaleTimeString() : 'N/A';
+      const row = `"${fo.name}","${selectedDate}","${fo.status}",${fo.workingHours},${fo.distanceCovered},"${lastActive}",${fo.battery ?? 'N/A'},"${fo.network || 'N/A'}"`;
+      csvContent += row + "\r\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Field_Shift_Report_${selectedDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Widgets toggle callback
+  const handleWidgetsChange = (list) => {
+    const status = {};
+    list.forEach(w => {
+      status[w.id] = w.visible;
+    });
+    setActiveWidgets(status);
+  };
+
+  // Calculate statistics metrics
+  const totalOfficers = officers.length;
+  const activeRouteCount = officers.filter(o => o.checkedIn && !o.checkedOut).length;
+  const checkedInCount = officers.filter(o => o.checkedIn).length;
+  const checkedOutCount = officers.filter(o => o.checkedOut).length;
+  const totalDistance = officers.reduce((acc, curr) => acc + (curr.distanceCovered || 0), 0);
+  const lateCheckins = officers.filter(o => o.status === 'Late').length;
+
+  const filteredOfficers = officers.filter(fo => 
+    fo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    fo.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-950 pb-20">
+      
+      {/* Top Header */}
+      <header className="sticky top-0 bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex justify-between items-center z-40">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-600/10 border border-sky-500/25 flex items-center justify-center font-extrabold text-sky-400 text-lg shadow-inner">
+            RF
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-100">Recovery Admin Portal</h2>
+            <p className="text-xs text-slate-400">Supervisor Dashboard</p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          
+          {/* Widget customizer */}
+          <DashboardWidgets onWidgetsChange={handleWidgetsChange} />
+
+          {/* Referral Code box */}
+          {user.referralCode && (
+            <div className="hidden md:flex flex-col text-right px-3 py-1 bg-slate-800/40 border border-slate-700/50 rounded-xl font-mono text-xs">
+              <span className="text-[9px] text-slate-500 uppercase font-semibold">Your Referral Code</span>
+              <span className="font-bold text-sky-400">{user.referralCode}</span>
+            </div>
+          )}
+
+          <button
+            onClick={onLogout}
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded-xl transition"
+            title="Log Out"
+          >
+            <LogOut className="w-4.5 h-4.5" />
+          </button>
+        </div>
+      </header>
+
+      {/* Main Grid Workspace */}
+      <main className="max-w-7xl mx-auto px-6 mt-8 space-y-8">
+        
+        {/* Widget 1: Statistics Summary */}
+        {activeWidgets.stats && (
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Officers</span>
+              <div className="text-2xl font-extrabold text-slate-200 flex items-center justify-between">
+                <span>{totalOfficers}</span>
+                <Users className="w-6 h-6 text-slate-650" />
+              </div>
+            </div>
+            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Online / Active</span>
+              <div className="text-2xl font-extrabold text-sky-400 flex items-center justify-between">
+                <span>{activeRouteCount}</span>
+                <div className="w-2.5 h-2.5 bg-sky-500 rounded-full animate-ping" />
+              </div>
+            </div>
+            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Checked In</span>
+              <div className="text-2xl font-extrabold text-emerald-400 flex items-center justify-between">
+                <span>{checkedInCount}</span>
+                <CheckCircle className="w-6 h-6 text-emerald-500/20" />
+              </div>
+            </div>
+            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distance Covered</span>
+              <div className="text-2xl font-extrabold text-amber-400 flex items-center justify-between">
+                <span>{Number(totalDistance.toFixed(1))} km</span>
+                <Navigation className="w-6 h-6 text-amber-500/20" />
+              </div>
+            </div>
+            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1 col-span-2 md:col-span-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Late Check-ins</span>
+              <div className="text-2xl font-extrabold text-rose-500 flex items-center justify-between">
+                <span>{lateCheckins}</span>
+                <Clock className="w-6 h-6 text-rose-500/20" />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Live Map Panel Grid */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Officers Sidebar Directory */}
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col space-y-4 max-h-[550px]">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm uppercase tracking-wide text-slate-200">Field Officers Shift</h3>
+              <button 
+                onClick={fetchLiveOfficers}
+                className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                <Search className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+              />
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto space-y-2 flex-grow pr-1">
+              {filteredOfficers.map((fo) => {
+                const isActive = selectedFO && selectedFO.userId === fo.userId;
+                return (
+                  <div
+                    key={fo.userId}
+                    onClick={() => {
+                      if (isActive) setSelectedFO(null);
+                      else setSelectedFO(fo);
+                    }}
+                    className={`p-3.5 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-600/10 border-sky-500/35 shadow-inner' : 'bg-slate-900/35 border-slate-850 hover:bg-slate-850 hover:border-slate-800'}`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-xs font-bold text-slate-200">{fo.name}</span>
+                        {fo.checkedIn && !fo.checkedOut && (
+                          <span className="w-2 h-2 bg-sky-500 rounded-full animate-pulse" />
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center space-x-2">
+                        <span>
+                          {fo.status}
+                          {fo.status === 'Late' && fo.lateMinutes > 0 && ` (by ${fo.lateMinutes} mins)`}
+                        </span>
+                        {fo.lastSeen && (
+                          <span>• Seen {new Date(fo.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right space-y-1 text-[10px] text-slate-500">
+                      <div>{fo.distanceCovered} km</div>
+                      <div>{fo.battery ? `🔋 ${fo.battery}%` : ''}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredOfficers.length === 0 && (
+                <div className="text-xs text-slate-500 text-center py-6">No officers matches.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Interactive Map View */}
+          <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-800 shadow relative min-h-[450px]">
+            {/* Header filters */}
+            <div className="absolute top-6 right-6 z-[1000] flex items-center space-x-3 bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur shadow">
+              {/* Date selection picker */}
+              <div className="flex items-center space-x-1">
+                <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                <input 
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer"
+                />
+              </div>
+
+              {/* CSV export */}
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700 transition"
+              >
+                <Download className="w-3 h-3 text-sky-400" />
+                <span>Export Shift CSV</span>
+              </button>
+            </div>
+
+            <MapComponent 
+              markers={mapMarkers} 
+              polyline={mapPolyline} 
+              replayMarker={replayCoord}
+              fitBoundsTrigger={mapBoundsTrigger}
+            />
+          </div>
+        </section>
+
+        {/* Selected Field Officer detailed breakdown (Replay + Visits) */}
+        {selectedFO && (
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
+            
+            {/* Left: Route Replay player */}
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
+              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+                <PlayCircle className="w-4.5 h-4.5 text-sky-400" />
+                <span>Route Replay: {selectedFO.name}</span>
+              </h3>
+              
+              <RouteReplay 
+                path={selectedFoHistory} 
+                stops={selectedFoVisits.map((v, i) => ({ index: i + 1, title: v.consumerName, lat: v.location.latitude, lng: v.location.longitude }))}
+                onPositionChange={(coord) => setReplayCoord({ lat: coord.latitude, lng: coord.longitude })}
+              />
+            </div>
+
+            {/* Right: Visits Timeline details */}
+            <div className="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
+              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+                <MapIcon className="w-4.5 h-4.5 text-sky-400" />
+                <span>Consumer Visits Logs & Timeline ({selectedFoVisits.length})</span>
+              </h3>
+
+              <div className="overflow-y-auto max-h-[350px] space-y-4 pr-1">
+                {selectedFoVisits.map((v, idx) => (
+                  <div key={idx} className="flex space-x-3.5 text-left border-l-2 border-slate-800 pl-4 py-1 relative">
+                    <span className="absolute -left-[9px] top-1.5 w-4 h-4 bg-sky-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center shadow-md">
+                      {idx + 1}
+                    </span>
+
+                    <div className="flex-grow space-y-1">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-slate-200">{v.consumerName}</h4>
+                        <span className="text-[10px] text-slate-400 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Target: {v.consumerAddress}</p>
+                      <p className="text-[10px] text-sky-400">GPS Detected: {v.detectedAddress}</p>
+                      {v.comment && (
+                        <p className="text-[10px] italic text-slate-300 bg-slate-900/40 p-2 border border-slate-850 rounded">
+                          "{v.comment}"
+                        </p>
+                      )}
+                    </div>
+
+                    {v.photo && (
+                      <div className="flex-shrink-0 w-16 h-16 rounded border border-slate-800 overflow-hidden shadow">
+                        <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {selectedFoVisits.length === 0 && (
+                  <div className="text-xs text-slate-500 text-center py-12">No visits logged for this date.</div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Telemetry warnings (low battery, etc.) */}
+        {activeWidgets.battery && (
+          <section className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
+            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+              <ShieldAlert className="w-4.5 h-4.5 text-rose-500" />
+              <span>Location Security Alerts & Telemetry Anomalies</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Warnings List */}
+              <div className="bg-slate-900/35 border border-slate-850 p-4 rounded-xl space-y-3 max-h-[160px] overflow-y-auto">
+                <span className="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Flagged Incidents</span>
+                <div className="space-y-2">
+                  {officers.filter(fo => fo.isSuspicious || (fo.battery && fo.battery < 20)).map((fo, idx) => (
+                    <div key={idx} className="flex items-center space-x-2 text-[10px] text-slate-300">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      <span>
+                        <strong>{fo.name}</strong>:{' '}
+                        {fo.isSuspicious ? 'Suspicious location jumps detected (mock speed threshold crossed).' : ''}
+                        {!fo.isSuspicious && fo.battery && fo.battery < 20 ? 'Battery level extremely low (< 20%).' : ''}
+                      </span>
+                    </div>
+                  ))}
+                  {officers.filter(fo => fo.isSuspicious || (fo.battery && fo.battery < 20)).length === 0 && (
+                    <div className="text-xs text-slate-500 italic">No GPS or telemetry anomalies reported.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Security info */}
+              <div className="bg-slate-900/35 border border-slate-850 p-4 rounded-xl text-[10.5px] text-slate-400 space-y-1">
+                <span className="font-bold text-slate-350 block">ℹ️ Location Security Notes:</span>
+                <p>Location checks utilize browser-based Geolocation API coordinates exclusively. Server-side anomaly detection flags sudden, realistic-jump velocity triggers (&gt;150 km/h) to capture mock wrappers and spoofing. Accuracy thresholds (±50m) are monitored dynamically.</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Analytics Section */}
+        <section className="space-y-4">
+          <h2 className="text-base font-bold tracking-tight text-slate-200">System Visual Analytics</h2>
+          <AnalyticsCharts officers={analytics.officers} attendanceSplit={analytics.attendanceSplit} />
+        </section>
+
+        {/* Widget 3: Announcements & Settings */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Announcements panel */}
+          {activeWidgets.announcements && (
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col space-y-4">
+              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+                <BookOpen className="w-4.5 h-4.5 text-sky-400" />
+                <span>Team Broadcast Announcements</span>
+              </h3>
+
+              <form onSubmit={handleAnnSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Announcement Title"
+                  value={annTitle}
+                  onChange={(e) => setAnnTitle(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3.5 text-xs text-slate-100 placeholder-slate-505 outline-none transition"
+                />
+                <textarea
+                  rows="2"
+                  required
+                  placeholder="Type broadcast message content..."
+                  value={annContent}
+                  onChange={(e) => setAnnContent(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3.5 text-xs text-slate-100 placeholder-slate-505 outline-none transition resize-none"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingAnn}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition flex items-center space-x-1.5 self-end"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send Broadcast</span>
+                </button>
+              </form>
+
+              {/* Feed */}
+              <div className="border-t border-slate-800 pt-3 space-y-3 max-h-[140px] overflow-y-auto pr-1">
+                {announcements.map((ann, idx) => (
+                  <div key={idx} className="bg-slate-900/25 p-3 border border-slate-850 rounded-xl text-left space-y-1">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-slate-200">{ann.title}</h4>
+                      <span className="text-[9px] text-slate-500 font-mono">{new Date(ann.createdAt || ann.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">{ann.content}</p>
+                  </div>
+                ))}
+                {announcements.length === 0 && (
+                  <div className="text-xs text-slate-500 italic text-center py-4">No broadcast history.</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Operational timing configurations */}
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
+            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+              <Settings className="w-4.5 h-4.5 text-sky-400" />
+              <span>Shift Timing Configurations</span>
+            </h3>
+
+            <form onSubmit={handleSettingsSubmit} className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400">Office Start Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:00 AM"
+                  value={settings.officeStart}
+                  onChange={(e) => setSettings({ ...settings, officeStart: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400">Late Threshold</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:30 AM"
+                  value={settings.lateAfter}
+                  onChange={(e) => setSettings({ ...settings, lateAfter: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400">Office End Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 06:00 PM"
+                  value={settings.officeEnd}
+                  onChange={(e) => setSettings({ ...settings, officeEnd: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-400">Session Timeout (Mins)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 30"
+                  value={settings.sessionTimeout}
+                  onChange={(e) => setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })}
+                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingSettings}
+                className="col-span-2 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center"
+              >
+                {submittingSettings ? 'Saving...' : 'Save Shift Settings'}
+              </button>
+            </form>
+          </div>
+        </section>
+
+        {/* Audit Trails Section */}
+        <section className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
+          <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+            <Award className="w-4.5 h-4.5 text-sky-400" />
+            <span>Shift Audit Trail Log</span>
+          </h3>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-bold tracking-wider">
+                  <th className="py-2.5 pr-4">User</th>
+                  <th className="py-2.5 px-4">Action</th>
+                  <th className="py-2.5 px-4">Details</th>
+                  <th className="py-2.5 px-4">IP Address</th>
+                  <th className="py-2.5 px-4">Browser/Device</th>
+                  <th className="py-2.5 pl-4">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-850/60 text-slate-300">
+                {auditLogs.slice(0, 10).map((log, idx) => (
+                  <tr key={idx} className="hover:bg-slate-900/10">
+                    <td className="py-2.5 pr-4 font-semibold text-slate-200">{log.userId?.name || 'System'}</td>
+                    <td className="py-2.5 px-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${log.action === 'Login' ? 'bg-sky-500/10 text-sky-450 border-sky-500/20' : log.action === 'Check-in' ? 'bg-emerald-500/10 text-emerald-450 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 max-w-xs truncate" title={log.details}>{log.details}</td>
+                    <td className="py-2.5 px-4 font-mono text-[10px] text-slate-400">{log.ip}</td>
+                    <td className="py-2.5 px-4 text-slate-400">{log.browser} / {log.device}</td>
+                    <td className="py-2.5 pl-4 font-mono text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {auditLogs.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center py-6 text-slate-500 italic">No audit records logged.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  );
+}

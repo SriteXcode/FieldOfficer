@@ -1,0 +1,13 @@
+[
+  {
+    "_id": "setting_alex",
+    "supervisorId": "super_alex",
+    "officeStart": "09:00 AM",
+    "lateAfter": "09:30 AM",
+    "officeEnd": "06:00 PM",
+    "sessionTimeout": 30,
+    "liveTrackingInterval": 60,
+    "createdAt": "2026-07-07T00:00:00.000Z",
+    "updatedAt": "2026-07-07T00:00:00.000Z"
+  }
+]

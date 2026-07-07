@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "super_alex",
+    "id": "super_alex",
+    "username": "alex",
+    "password": "$2a$10$NbqNcsM1Pl4yYWsmV7CwN.3hubLuPizfxIU2e/sYAr5hlckZV44Fm",
+    "name": "Supervisor Alex",
+    "role": "Supervisor",
+    "referralCode": "REF-ALEX12",
+    "status": "active",
+    "createdAt": "2026-07-07T00:00:00.000Z",
+    "updatedAt": "2026-07-07T00:00:00.000Z"
+  },
+  {
+    "_id": "fo_john",
+    "id": "fo_john",
+    "username": "john",
+    "password": "$2a$10$NbqNcsM1Pl4yYWsmV7CwN.3hubLuPizfxIU2e/sYAr5hlckZV44Fm",
+    "name": "John (Field Officer)",
+    "role": "Field Officer",
+    "supervisorId": "super_alex",
+    "status": "active",
+    "createdAt": "2026-07-07T00:00:00.000Z",
+    "updatedAt": "2026-07-07T00:00:00.000Z"
+  },
+  {
+    "_id": "fo_sarah",
+    "id": "fo_sarah",
+    "username": "sarah",
+    "password": "$2a$10$NbqNcsM1Pl4yYWsmV7CwN.3hubLuPizfxIU2e/sYAr5hlckZV44Fm",
+    "name": "Sarah (Field Officer)",
+    "role": "Field Officer",
+    "supervisorId": "super_alex",
+    "status": "active",
+    "createdAt": "2026-07-07T00:00:00.000Z",
+    "updatedAt": "2026-07-07T00:00:00.000Z"
+  }
+]

@@ -1,0 +1,102 @@
+[
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.97159,
+    "longitude": 77.59456,
+    "accuracy": 8,
+    "battery": 94,
+    "network": "Wifi",
+    "timestamp": "2026-07-07T03:45:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9752,
+    "longitude": 77.5975,
+    "accuracy": 10,
+    "battery": 91,
+    "network": "4G",
+    "timestamp": "2026-07-07T04:00:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9812,
+    "longitude": 77.6015,
+    "accuracy": 8,
+    "battery": 88,
+    "network": "4G",
+    "timestamp": "2026-07-07T04:15:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9721,
+    "longitude": 77.6092,
+    "accuracy": 10,
+    "battery": 83,
+    "network": "4G",
+    "timestamp": "2026-07-07T05:00:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9645,
+    "longitude": 77.6148,
+    "accuracy": 10,
+    "battery": 80,
+    "network": "4G",
+    "timestamp": "2026-07-07T05:30:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9562,
+    "longitude": 77.6185,
+    "accuracy": 12,
+    "battery": 76,
+    "network": "4G",
+    "timestamp": "2026-07-07T05:45:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9482,
+    "longitude": 77.6212,
+    "accuracy": 12,
+    "battery": 70,
+    "network": "4G",
+    "timestamp": "2026-07-07T06:30:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9405,
+    "longitude": 77.6254,
+    "accuracy": 15,
+    "battery": 62,
+    "network": "3G",
+    "timestamp": "2026-07-07T08:00:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9348,
+    "longitude": 77.6235,
+    "accuracy": 15,
+    "battery": 55,
+    "network": "3G",
+    "timestamp": "2026-07-07T09:30:00.000Z"
+  },
+  {
+    "userId": "fo_john",
+    "date": "2026-07-07",
+    "latitude": 12.9304,
+    "longitude": 77.6226,
+    "accuracy": 12,
+    "battery": 42,
+    "network": "4G",
+    "timestamp": "2026-07-07T12:15:00.000Z"
+  }
+]
