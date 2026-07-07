@@ -41,6 +41,11 @@ async function protect(req, res, next) {
       return res.status(401).json({ error: "User not found or session expired." });
     }
 
+    // Restrict multiple device logins
+    if (user.sessionToken && user.sessionToken !== decoded.sessionToken) {
+      return res.status(401).json({ error: "Session invalidated. Logged in from another device." });
+    }
+
     req.user = {
       id: user._id?.toString() || user.id,
       username: user.username,

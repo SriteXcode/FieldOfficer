@@ -10,7 +10,14 @@ export default function Login({ onLoginSuccess }) {
   const [error, setError] = useState('');
   
   const location = useLocation();
-  const sessionExpired = location.state?.expired;
+  const [logoutReason, setLogoutReason] = useState(() => {
+    const reason = sessionStorage.getItem('logoutReason');
+    sessionStorage.removeItem('logoutReason'); // clear immediately
+    return reason;
+  });
+
+  const sessionExpired = location.state?.expired || logoutReason === 'session_expired';
+  const duplicateLogin = logoutReason === 'duplicate_login';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,6 +63,15 @@ export default function Login({ onLoginSuccess }) {
             <div className="flex items-center space-x-2.5 p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-400 text-xs">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>Security Warning: You have been logged out due to inactivity.</span>
+            </div>
+          )}
+
+          {duplicateLogin && (
+            <div className="flex items-start space-x-2.5 p-3.5 bg-rose-500/10 border border-rose-500/25 rounded-xl text-rose-400 text-xs text-left">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Account Disconnected:</strong> This profile was signed in on another device. Simultaneous logins are restricted.
+              </span>
             </div>
           )}
 

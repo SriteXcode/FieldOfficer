@@ -47,6 +47,12 @@ export default function SupervisorDashboard({ user, onLogout }) {
     if (!address) return false;
     return address.toLowerCase().includes(selectedState.toLowerCase());
   };
+
+  const isOnline = (fo) => {
+    if (!fo.lastSeen) return false;
+    const lastSeenTime = new Date(fo.lastSeen).getTime();
+    return Date.now() - lastSeenTime < 3 * 60 * 1000;
+  };
   
   // Form states
   const [annTitle, setAnnTitle] = useState('');
@@ -276,6 +282,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
         polyline.push([dayAtt.checkOut.latitude, dayAtt.checkOut.longitude]);
       }
 
+      // Flag the last active marker to open its popup by default for immediate summary feedback
+      if (markers.length > 0) {
+        markers[markers.length - 1].openByDefault = true;
+      }
+
       setMapMarkers(markers);
       setMapPolyline(polyline);
       setMapBoundsTrigger(prev => prev + 1); // trigger auto map zoom/fit
@@ -326,7 +337,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
     officers.forEach(fo => {
       const lastActive = fo.lastSeen ? new Date(fo.lastSeen).toLocaleTimeString() : 'N/A';
-      const row = `"${fo.name}","${selectedDate}","${fo.status}",${fo.workingHours},${fo.distanceCovered},"${lastActive}",${fo.battery ?? 'N/A'},"${fo.network || 'N/A'}"`;
+      const row = `"${fo.name}","${selectedDate}","${fo.status}",${fo.workingHours},${Number(fo.distanceCovered || 0).toFixed(3)},"${lastActive}",${fo.battery ?? 'N/A'},"${fo.network || 'N/A'}"`;
       csvContent += row + "\r\n";
     });
 
@@ -364,7 +375,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
   // Calculate statistics metrics for the filtered set
   const totalOfficers = filteredOfficers.length;
-  const activeRouteCount = filteredOfficers.filter(o => o.checkedIn && !o.checkedOut).length;
+  const activeRouteCount = filteredOfficers.filter(o => o.checkedIn && !o.checkedOut && isOnline(o)).length;
   const checkedInCount = filteredOfficers.filter(o => o.checkedIn).length;
   const checkedOutCount = filteredOfficers.filter(o => o.checkedOut).length;
   const totalDistance = filteredOfficers.reduce((acc, curr) => acc + (curr.distanceCovered || 0), 0);
@@ -438,7 +449,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
             <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distance Covered</span>
               <div className="text-2xl font-extrabold text-amber-400 flex items-center justify-between">
-                <span>{Number(totalDistance.toFixed(1))} km</span>
+                <span>{totalDistance.toFixed(3)} km</span>
                 <Navigation className="w-6 h-6 text-amber-500/20" />
               </div>
             </div>
@@ -492,13 +503,16 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       if (isActive) setSelectedFO(null);
                       else setSelectedFO(fo);
                     }}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-600/10 border-sky-500/35 shadow-inner' : 'bg-slate-900/35 border-slate-850 hover:bg-slate-850 hover:border-slate-800'}`}
+                    className={`p-3.5 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-600/10 border-b border-sky-500 shadow-inner' : 'bg-slate-900/35 border-slate-850 hover:bg-slate-850'}`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center space-x-1.5">
                         <span className="text-xs font-bold text-slate-200">{fo.name}</span>
                         {fo.checkedIn && !fo.checkedOut && (
-                          <span className="w-2 h-2 bg-sky-500 rounded-full animate-pulse" />
+                          <span 
+                            className={`w-2 h-2 rounded-full animate-pulse ${isOnline(fo) ? 'bg-emerald-500' : 'bg-amber-500'}`} 
+                            title={isOnline(fo) ? 'Online & Actively Tracking' : 'Offline / Inactive (No GPS ping in >3m)'}
+                          />
                         )}
                       </div>
                       <div className="text-[10px] text-slate-400 flex items-center space-x-2">
@@ -513,7 +527,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     </div>
 
                     <div className="text-right space-y-1 text-[10px] text-slate-500">
-                      <div>{fo.distanceCovered} km</div>
+                      <div>{Number(fo.distanceCovered || 0).toFixed(3)} km</div>
                       <div>{fo.battery ? `🔋 ${fo.battery}%` : ''}</div>
                     </div>
                   </div>
@@ -548,11 +562,13 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   onChange={(e) => setSelectedState(e.target.value)}
                   className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-slate-900"
                 >
-                  <option value="All" className="bg-slate-900 text-slate-200">All States</option>
-                  <option value="Karnataka" className="bg-slate-900 text-slate-200">Karnataka</option>
-                  <option value="Maharashtra" className="bg-slate-900 text-slate-200">Maharashtra</option>
-                  <option value="Tamil Nadu" className="bg-slate-900 text-slate-200">Tamil Nadu</option>
-                  <option value="Delhi" className="bg-slate-900 text-slate-200">Delhi</option>
+                  <option value="All" className="bg-slate-900 text-slate-200">All UP</option>
+                  <option value="Lucknow" className="bg-slate-900 text-slate-200">Lucknow</option>
+                  <option value="Kanpur" className="bg-slate-900 text-slate-200">Kanpur</option>
+                  <option value="Noida" className="bg-slate-900 text-slate-200">Noida / G. Noida</option>
+                  <option value="Varanasi" className="bg-slate-900 text-slate-200">Varanasi</option>
+                  <option value="Bareilly" className="bg-slate-900 text-slate-200">Bareilly</option>
+                  <option value="Aliganj" className="bg-slate-900 text-slate-200">Aliganj Area</option>
                 </select>
               </div>
 

@@ -84,6 +84,14 @@ export default function App() {
         if (error.response && error.response.status === 401) {
           console.warn("Session expired. Redirecting to login...");
           localStorage.removeItem('authToken');
+          
+          const errMsg = error.response.data?.error || '';
+          if (errMsg.includes('another device')) {
+            sessionStorage.setItem('logoutReason', 'duplicate_login');
+          } else {
+            sessionStorage.setItem('logoutReason', 'session_expired');
+          }
+          
           setUser(null);
         }
         return Promise.reject(error);

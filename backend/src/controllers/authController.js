@@ -111,7 +111,7 @@ async function register(req, res) {
           officeStart: "09:00 AM",
           lateAfter: "09:30 AM",
           officeEnd: "06:00 PM",
-          sessionTimeout: 30,
+          sessionTimeout: 1440,
           liveTrackingInterval: 60,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -165,11 +165,24 @@ async function login(req, res) {
     }
 
     const userId = user._id ? user._id.toString() : user.id;
+    const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+    try {
+      await connectToDatabase();
+      await User.updateOne({ _id: user._id }, { $set: { sessionToken } });
+    } catch (e) {
+      const mockUsers = getMockData("User");
+      const idx = mockUsers.findIndex(u => u.username === username);
+      if (idx !== -1) {
+        mockUsers[idx].sessionToken = sessionToken;
+        saveMockData("User", mockUsers);
+      }
+    }
 
     const token = jwt.sign(
-      { userId, username: user.username, role: user.role },
+      { userId, username: user.username, role: user.role, sessionToken },
       JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "30d" }
     );
 
     const userPayload = {
@@ -191,7 +204,7 @@ async function login(req, res) {
     // Set cookie
     res.setHeader(
       "Set-Cookie",
-      `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24};`
+      `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30};`
     );
 
     return res.status(200).json({

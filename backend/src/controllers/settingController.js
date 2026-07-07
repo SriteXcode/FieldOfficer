@@ -26,7 +26,7 @@ async function getSettings(req, res) {
           officeStart: "09:00 AM",
           lateAfter: "09:30 AM",
           officeEnd: "06:00 PM",
-          sessionTimeout: 30,
+          sessionTimeout: 1440,
           liveTrackingInterval: 60,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

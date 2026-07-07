@@ -5,9 +5,12 @@
     "supervisorId": "super_alex",
     "consumerName": "ABC Finance Ltd",
     "consumerPhone": "+91 98765 43210",
-    "consumerAddress": "100 Feet Rd, Indiranagar, Bengaluru",
-    "location": { "latitude": 12.9812, "longitude": 77.6015 },
-    "detectedAddress": "100 Feet Rd, Indiranagar, Bengaluru (OSM Verified)",
+    "consumerAddress": "Sector B, Aliganj, Lucknow, Uttar Pradesh",
+    "location": {
+      "latitude": 26.889,
+      "longitude": 80.938
+    },
+    "detectedAddress": "Sector B, Aliganj, Lucknow, Uttar Pradesh (OSM Verified)",
     "timestamp": "2026-07-07T04:15:00.000Z",
     "comment": "Consumer paid pending amount via card. Receipt issued.",
     "photo": "",
@@ -24,9 +27,12 @@
     "supervisorId": "super_alex",
     "consumerName": "XYZ Collections",
     "consumerPhone": "+91 91234 56789",
-    "consumerAddress": "Domlur Post, Indiranagar, Bengaluru",
-    "location": { "latitude": 12.9562, "longitude": 77.6185 },
-    "detectedAddress": "Domlur, Bengaluru, Karnataka (OSM Verified)",
+    "consumerAddress": "Hazratganj Plaza, Lucknow, Uttar Pradesh",
+    "location": {
+      "latitude": 26.846,
+      "longitude": 80.946
+    },
+    "detectedAddress": "Hazratganj Plaza, Lucknow, Uttar Pradesh (OSM Verified)",
     "timestamp": "2026-07-07T05:45:00.000Z",
     "comment": "Promise to pay by Friday. Follow up scheduled.",
     "photo": "",
@@ -43,9 +49,12 @@
     "supervisorId": "super_alex",
     "consumerName": "Karan Johar",
     "consumerPhone": "+91 88888 77777",
-    "consumerAddress": "HSR Layout, Sector 3, Bengaluru",
-    "location": { "latitude": 12.9405, "longitude": 77.6254 },
-    "detectedAddress": "HSR Layout, Sector 3, Bengaluru (OSM Verified)",
+    "consumerAddress": "Sector 14, Indira Nagar, Lucknow, Uttar Pradesh",
+    "location": {
+      "latitude": 26.879,
+      "longitude": 80.975
+    },
+    "detectedAddress": "Sector 14, Indira Nagar, Lucknow, Uttar Pradesh (OSM Verified)",
     "timestamp": "2026-07-07T08:00:00.000Z",
     "comment": "Address locked. Consumer not available. Notice pasted.",
     "photo": "",

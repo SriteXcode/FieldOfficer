@@ -26,12 +26,44 @@ export default function MapComponent({
       zoomControl: true,
     });
 
-    // Dark Mode Map Tiles (CartoDB Dark Matter)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // Define tile layers (Bright Streets, Hybrid Satellite, and Dark Mode)
+    const streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    });
+
+    const satelliteBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+      maxZoom: 19
+    });
+
+    const satelliteLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    });
+
+    const satelliteRoads = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    });
+
+    // Combine base satellite with road and label overlays
+    const satelliteGroup = L.layerGroup([satelliteBase, satelliteRoads, satelliteLabels]);
+
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 20
-    }).addTo(mapInstance.current);
+    });
+
+    // Add default OpenStreetMap tiles
+    streetTiles.addTo(mapInstance.current);
+
+    // Layer control toggle
+    const baseMaps = {
+      "🗺️ Bright Streets": streetTiles,
+      "🛰️ Hybrid Satellite": satelliteGroup,
+      "🕶️ Dark Mode": darkTiles
+    };
+    L.control.layers(baseMaps, null, { position: 'bottomright' }).addTo(mapInstance.current);
 
     // Layers groups
     markersGroup.current = L.layerGroup().addTo(mapInstance.current);
@@ -95,9 +127,17 @@ export default function MapComponent({
         </div>
       `;
 
-      L.marker([m.lat, m.lng], { icon: htmlIcon })
+      const markerInstance = L.marker([m.lat, m.lng], { icon: htmlIcon })
         .bindPopup(popupContent)
         .addTo(markersGroup.current);
+
+      if (m.openByDefault) {
+        setTimeout(() => {
+          if (mapInstance.current && markerInstance) {
+            markerInstance.openPopup();
+          }
+        }, 300);
+      }
     });
 
     // Update Polyline

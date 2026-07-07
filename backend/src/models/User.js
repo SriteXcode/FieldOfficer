@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema(
     referralCode: { type: String }, // For Supervisors, used by FOs to sign up under them
     supervisorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // For FOs, links to their Supervisor
     status: { type: String, enum: ["active", "inactive"], default: "active" },
+    sessionToken: { type: String, default: null },
   },
   { timestamps: true }
 );
