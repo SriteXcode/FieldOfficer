@@ -44,6 +44,15 @@ async function logLiveLocation(req, res) {
       );
     }
 
+    // Geocode current live location
+    let address = "";
+    try {
+      const { reverseGeocode } = require("../utils/geo.js");
+      address = await reverseGeocode(latitude, longitude);
+    } catch (ge) {
+      console.error("Failed to reverse geocode live location", ge);
+    }
+
     let savedLoc = null;
     try {
       await connectToDatabase();
@@ -56,6 +65,7 @@ async function logLiveLocation(req, res) {
         battery,
         network,
         device,
+        address,
         timestamp: now,
       });
     } catch (e) {
@@ -72,6 +82,7 @@ async function logLiveLocation(req, res) {
         battery,
         network,
         device,
+        address,
         timestamp: now.toISOString(),
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
@@ -140,7 +151,9 @@ async function logLiveLocation(req, res) {
         checkedOut: false,
         status: att ? att.status : "Present",
         distanceCovered: att ? att.distanceCovered : 0,
-        timestamp: now.toISOString()
+        timestamp: now.toISOString(),
+        lastLocationAddress: address || null,
+        checkIn: att?.checkIn || null
       });
     }
 
@@ -252,7 +265,7 @@ async function getLiveOfficers(req, res) {
         const pings = mockLocations
           .filter(l => l.userId === foId && l.date === todayStr)
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        if (pings.length > 0) lastPing = pings[pings.length - 1];
+        if (pings.length > 0) lastPing = pings[0];
       }
 
       // Calculate how many minutes late
@@ -280,12 +293,14 @@ async function getLiveOfficers(req, res) {
         checkedOut: !!att?.checkOut,
         checkInTime: att?.checkIn?.time || null,
         checkOutTime: att?.checkOut?.time || null,
+        checkIn: att?.checkIn || null,
         status: att?.status || "Absent",
         lateMinutes,
         distanceCovered: att?.distanceCovered || 0,
         workingHours: att?.workingHours || 0,
         lastSeen: lastPing ? lastPing.timestamp : (att?.checkIn?.time || null),
         lastLocation: lastPing ? { lat: lastPing.latitude, lng: lastPing.longitude, accuracy: lastPing.accuracy } : (att?.checkIn ? { lat: att.checkIn.latitude, lng: att.checkIn.longitude, accuracy: att.checkIn.accuracy } : null),
+        lastLocationAddress: lastPing ? (lastPing.address || null) : (att?.checkIn?.address || null),
         battery: lastPing ? lastPing.battery : (att?.checkIn?.battery || null),
         network: lastPing ? lastPing.network : (att?.checkIn?.network || null),
       });

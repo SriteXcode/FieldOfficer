@@ -9,6 +9,7 @@ import CameraModal from '../components/CameraModal';
 
 export default function FODashboard({ user, onLogout }) {
   // UI states
+  const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState('');
@@ -141,6 +142,7 @@ export default function FODashboard({ user, onLogout }) {
 
   // Sync today's attendance state
   const fetchTodayAttendance = async () => {
+    setLoading(true);
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       const res = await axios.get(`/api/attendance?date=${todayStr}`);
@@ -164,6 +166,8 @@ export default function FODashboard({ user, onLogout }) {
           });
         }
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -279,11 +283,7 @@ export default function FODashboard({ user, onLogout }) {
   // Clean up location watchers
   const stopLiveTracking = () => {
     if (watchIdRef.current) {
-      if (simulatedMode) {
-        clearInterval(watchIdRef.current);
-      } else {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
+      clearInterval(watchIdRef.current);
       watchIdRef.current = null;
     }
   };
@@ -318,27 +318,42 @@ export default function FODashboard({ user, onLogout }) {
     if (simulatedMode) {
       let mockLat = 26.8894;
       let mockLng = 80.9388;
+      
+      // Immediate ping
+      setCurrentCoords({ lat: mockLat, lng: mockLng });
+      pingLocation(mockLat, mockLng, 10);
+
       watchIdRef.current = setInterval(() => {
         mockLat += (Math.random() - 0.5) * 0.001;
         mockLng += (Math.random() - 0.5) * 0.001;
         setCurrentCoords({ lat: mockLat, lng: mockLng });
         pingLocation(mockLat, mockLng, 10);
-      }, 45000); // ping every 45s
+      }, 30000); // ping every 30s
       return;
     }
 
     if (!navigator.geolocation) return;
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      async (pos) => {
+    // Trigger an immediate initial ping on start
+    getCoordinates().then((pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      setCurrentCoords({ lat: latitude, lng: longitude });
+      setTelemetry(t => ({ ...t, accuracy }));
+      pingLocation(latitude, longitude, accuracy);
+    }).catch(err => console.error("Initial GPS fetch failed:", err));
+
+    // Setup 30s periodic tracking interval
+    watchIdRef.current = setInterval(async () => {
+      try {
+        const pos = await getCoordinates();
         const { latitude, longitude, accuracy } = pos.coords;
         setCurrentCoords({ lat: latitude, lng: longitude });
         setTelemetry(t => ({ ...t, accuracy }));
-        pingLocation(latitude, longitude, accuracy);
-      },
-      (err) => console.error("Live tracking watch failed:", err),
-      { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
-    );
+        await pingLocation(latitude, longitude, accuracy);
+      } catch (err) {
+        console.error("Periodic GPS fetch failed:", err);
+      }
+    }, 30000); // ping every 30s
   };
 
   // Trigger Check-in / Out
@@ -488,6 +503,17 @@ export default function FODashboard({ user, onLogout }) {
     }
     onLogout();
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-200">
+        <div className="space-y-4 text-center">
+          <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold tracking-wide text-slate-400">Loading your shift data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 pb-12">

@@ -28,6 +28,17 @@ export default function RMDashboard({ user, onLogout }) {
     }, 800);
   }, []);
 
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-200">
+        <div className="space-y-4 text-center">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold tracking-wide text-indigo-400">Loading Regional Manager Analytics...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
       {/* Header */}

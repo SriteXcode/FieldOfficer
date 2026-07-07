@@ -28,6 +28,10 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const [selectedFoVisits, setSelectedFoVisits] = useState([]); // List of visits
   const [replayCoord, setReplayCoord] = useState(null); // Active coordinate for replay
 
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // Operational states
   const [officers, setOfficers] = useState([]); // Today's live statuses
   const [announcements, setAnnouncements] = useState([]);
@@ -73,13 +77,16 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
   // Socket Setup
   useEffect(() => {
-    // Fetch initial announcements & settings on load
-    fetchAnnouncements();
-    fetchAuditLogs();
-    fetchSettings();
 
     // Setup Socket connection
-    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const getSocketUrl = () => {
+      if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+      }
+      return 'https://fieldofficer-1.onrender.com';
+    };
+    const socketUrl = getSocketUrl();
     const socket = io(socketUrl, { withCredentials: true });
     socket.emit('join_room', `supervisor_${user.id}`);
 
@@ -99,6 +106,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
             distanceCovered: data.distanceCovered !== undefined ? data.distanceCovered : fo.distanceCovered,
             checkInTime: data.checkedIn && !fo.checkInTime ? data.timestamp : fo.checkInTime,
             checkOutTime: data.checkedOut && !fo.checkOutTime ? data.timestamp : fo.checkOutTime,
+            checkIn: data.checkIn || fo.checkIn,
+            lastLocationAddress: data.lastLocationAddress || fo.lastLocationAddress,
             lastSeen: data.timestamp,
             lastLocation: data.latitude ? { lat: data.latitude, lng: data.longitude, accuracy: data.accuracy } : fo.lastLocation,
             battery: data.battery !== undefined ? data.battery : fo.battery,
@@ -132,10 +141,10 @@ export default function SupervisorDashboard({ user, onLogout }) {
       setAnnouncements(prev => [ann, ...prev]);
     });
 
-    // Refresh live list for the current selected date every 60 seconds
+    // Refresh live list for the current selected date every 30 seconds
     const interval = setInterval(() => {
       fetchLiveOfficers(selectedDateRef.current);
-    }, 60000);
+    }, 30000);
 
     return () => {
       socket.disconnect();
@@ -143,10 +152,25 @@ export default function SupervisorDashboard({ user, onLogout }) {
     };
   }, [user.id]);
 
-  // Handle selected date changes - fetch active data for that day
+  // Handle selected date changes - fetch active data for that day with loader
   useEffect(() => {
-    fetchLiveOfficers(selectedDate);
-    fetchAnalytics(selectedDate);
+    const loadAllData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchLiveOfficers(selectedDate),
+          fetchAnalytics(selectedDate),
+          fetchAnnouncements(),
+          fetchAuditLogs(),
+          fetchSettings()
+        ]);
+      } catch (err) {
+        console.error("Error loading dashboard data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAllData();
   }, [selectedDate]);
 
   // Handle selected FO changes or date changes
@@ -220,6 +244,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
   // Fetch coordinates history and visits timeline for an officer on a specific day
   const fetchFoHistoryDetails = async () => {
+    setHistoryLoading(true);
     try {
       // 1. Fetch tracking path
       const pathRes = await axios.get(`/api/locations/history?userId=${selectedFO.userId}&date=${selectedDate}`);
@@ -293,6 +318,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
       setMapBoundsTrigger(prev => prev + 1); // trigger auto map zoom/fit
     } catch (e) {
       console.error("Failed to load history metrics", e);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -381,6 +408,17 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const checkedOutCount = filteredOfficers.filter(o => o.checkedOut).length;
   const totalDistance = filteredOfficers.reduce((acc, curr) => acc + (curr.distanceCovered || 0), 0);
   const lateCheckins = filteredOfficers.filter(o => o.status === 'Late').length;
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-200">
+        <div className="space-y-4 text-center">
+          <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold tracking-wide text-slate-400">Loading Recovery Supervisor Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
@@ -543,7 +581,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
           {/* Interactive Map View */}
           <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-800 shadow relative min-h-[450px]">
             {/* Header filters */}
-            <div className="absolute top-6 right-6 z-[1000] flex items-center space-x-3 bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl backdrop-blur shadow">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl mb-4 md:mb-0 md:absolute md:top-6 md:right-6 md:z-[1000] md:flex-row md:space-x-3 md:bg-slate-900/90 md:p-2.5 md:rounded-xl md:backdrop-blur md:shadow w-full md:w-auto">
               {/* Date selection picker */}
               <div className="flex items-center space-x-1">
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
@@ -594,7 +632,15 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
         {/* Selected Field Officer detailed breakdown (Replay + Visits) */}
         {selectedFO && (
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn relative">
+            {historyLoading && (
+              <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-30 flex items-center justify-center rounded-2xl">
+                <div className="text-center space-y-2">
+                  <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-xs text-slate-400 font-medium">Fetching officer history details...</p>
+                </div>
+              </div>
+            )}
             
             {/* Left: Route Replay player */}
             <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">

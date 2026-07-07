@@ -24,7 +24,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
+  ? process.env.CORS_ORIGIN.split(",").map((origin) => {
+      let val = origin.trim();
+      if (val.endsWith("/")) {
+        val = val.slice(0, -1);
+      }
+      return val;
+    }).filter(Boolean)
   : true;
 
 // Middleware
@@ -79,25 +85,49 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy", timestamp: new Date() });
 });
 
-app.get("/", (req, res, next) => {
-  if (fs.existsSync(clientIndexHtml)) return next();
-  res.send("Field Officer API is running...");
-});
-
 // Serve the Vite client build. Keep this after API routes.
 const clientDistPath = process.env.CLIENT_DIST_DIR
   ? path.resolve(__dirname, process.env.CLIENT_DIST_DIR)
   : path.resolve(__dirname, "../client/dist");
 const clientIndexHtml = path.join(clientDistPath, "index.html");
 
-if (fs.existsSync(clientIndexHtml)) {
-  app.use(express.static(clientDistPath));
-  app.get("*", (req, res) => {
-    res.sendFile(clientIndexHtml);
-  });
-} else if (process.env.NODE_ENV === "production") {
-  console.warn(`Client build not found at ${clientIndexHtml}. API routes will still run.`);
-}
+// Middleware to rewrite asset URLs from nested sub-directories or custom path prefixes (e.g. /rosefoundation/assets/...)
+app.use((req, res, next) => {
+  if (
+    req.url.includes("/assets/") ||
+    req.url.includes("/favicon.ico") ||
+    req.url.includes("/manifest.json") ||
+    req.url.includes("/sw.js") ||
+    req.url.includes("/register-sw.js")
+  ) {
+    const parts = req.url.split(/(assets\/|favicon\.ico|manifest\.json|sw\.js|register-sw\.js)/);
+    if (parts.length > 1) {
+      req.url = "/" + parts.slice(1).join("");
+    }
+  }
+  next();
+});
+
+// Serve static assets unconditionally
+app.use(express.static(clientDistPath));
+
+app.get("/", (req, res) => {
+  if (fs.existsSync(clientIndexHtml)) {
+    return res.sendFile(clientIndexHtml);
+  }
+  res.send("Field Officer API is running...");
+});
+
+// Wildcard route to support client-side routing on refreshes
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    return next();
+  }
+  if (fs.existsSync(clientIndexHtml)) {
+    return res.sendFile(clientIndexHtml);
+  }
+  res.status(404).send("Not Found");
+});
 
 function configureSocket(server) {
   const io = new Server(server, {

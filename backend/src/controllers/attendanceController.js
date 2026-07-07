@@ -251,7 +251,9 @@ async function checkInOrOut(req, res) {
         checkedOut: type === "checkOut",
         status: result.status,
         distanceCovered: result.distanceCovered || 0,
-        timestamp: now.toISOString()
+        timestamp: now.toISOString(),
+        checkIn: result.checkIn || null,
+        lastLocationAddress: address || null
       });
     }
 

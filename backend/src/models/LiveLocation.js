@@ -10,6 +10,7 @@ const LiveLocationSchema = new mongoose.Schema(
     battery: { type: Number },
     network: { type: String },
     device: { type: String },
+    address: { type: String },
     timestamp: { type: Date, default: Date.now },
   },
   { timestamps: true }
