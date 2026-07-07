@@ -98,14 +98,11 @@ app.get("/health", (req, res) => {
 const path = require("path");
 const fs = require("fs");
 
-// Serve static assets in production or if the client build exists
+// Serve the Vite client build.
 const configuredClientDistPath = process.env.CLIENT_DIST_DIR
   ? path.resolve(__dirname, process.env.CLIENT_DIST_DIR)
   : path.resolve(__dirname, "../client/dist");
-const legacyPublicPath = path.join(__dirname, "public");
-const clientDistPath = fs.existsSync(path.join(configuredClientDistPath, "index.html"))
-  ? configuredClientDistPath
-  : legacyPublicPath;
+const clientDistPath = configuredClientDistPath;
 const clientIndexHtml = path.join(clientDistPath, "index.html");
 
 if (fs.existsSync(clientIndexHtml)) {
