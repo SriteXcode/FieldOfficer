@@ -1,4 +1,4 @@
-const CACHE_NAME = 'recovery-tracker-v1';
+const CACHE_NAME = 'recovery-tracker-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -37,8 +37,23 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event - Network First with Cache Fallback for dynamic pages
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and skip browser extensions or socket.io routes
-  if (event.request.method !== 'GET' || event.request.url.includes('/socket.io') || event.request.url.includes('/api/')) {
+  const requestUrl = new URL(event.request.url);
+
+  // Only handle same-origin http(s) GET requests from this app.
+  if (
+    event.request.method !== 'GET' ||
+    !['http:', 'https:'].includes(requestUrl.protocol) ||
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith('/socket.io') ||
+    requestUrl.pathname.startsWith('/api/')
+  ) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html').then((response) => response || caches.match('/')))
+    );
     return;
   }
 
@@ -46,7 +61,7 @@ self.addEventListener('fetch', (event) => {
     fetch(event.request)
       .then((response) => {
         // Cache new assets dynamically if response is valid
-        if (response.status === 200) {
+        if (response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -60,10 +75,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          // If offline and request index/routes, fallback to root index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
+          return Response.error();
         });
       })
   );
