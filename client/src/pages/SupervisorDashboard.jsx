@@ -79,7 +79,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
     fetchSettings();
 
     // Setup Socket connection
-    const socket = io('http://localhost:5000');
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const socket = io(socketUrl, { withCredentials: true });
     socket.emit('join_room', `supervisor_${user.id}`);
 
     socket.on('location_update', (data) => {

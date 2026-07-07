@@ -23,9 +23,13 @@ const app = express();
 const server = http.createServer(app);
 
 // Socket.IO configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
+  : true;
+
 const io = new Server(server, {
   cors: {
-    origin: ["https://fieldofficer-1.onrender.com", "http://localhost:3000", "http://localhost:5173"], 
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -95,14 +99,22 @@ const path = require("path");
 const fs = require("fs");
 
 // Serve static assets in production or if the client build exists
-const clientDistPath = path.join(__dirname, "public");
+const configuredClientDistPath = process.env.CLIENT_DIST_DIR
+  ? path.resolve(__dirname, process.env.CLIENT_DIST_DIR)
+  : path.resolve(__dirname, "../client/dist");
+const legacyPublicPath = path.join(__dirname, "public");
+const clientDistPath = fs.existsSync(path.join(configuredClientDistPath, "index.html"))
+  ? configuredClientDistPath
+  : legacyPublicPath;
 const clientIndexHtml = path.join(clientDistPath, "index.html");
 
-if (process.env.NODE_ENV === "production" || fs.existsSync(clientIndexHtml)) {
+if (fs.existsSync(clientIndexHtml)) {
   app.use(express.static(clientDistPath));
   app.get("*", (req, res) => {
     res.sendFile(clientIndexHtml);
   });
+} else if (process.env.NODE_ENV === "production") {
+  console.warn(`Client build not found at ${clientIndexHtml}. API routes will still run.`);
 }
 
 // Socket.IO Connections
