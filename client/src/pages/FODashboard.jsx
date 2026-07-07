@@ -20,6 +20,29 @@ export default function FODashboard({ user, onLogout }) {
   const [currentCoords, setCurrentCoords] = useState(null);
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
   const [simulatedMode, setSimulatedMode] = useState(() => localStorage.getItem('simulatedGPS') === 'true');
+  const [detectedAddress, setDetectedAddress] = useState('Detecting location...');
+
+  const handleSimulatedModeChange = (checked) => {
+    setSimulatedMode(checked);
+    localStorage.setItem('simulatedGPS', checked ? 'true' : 'false');
+  };
+
+  const refreshDetectedLocation = async () => {
+    setDetectedAddress('Detecting location...');
+    try {
+      const pos = await getCoordinates();
+      const { latitude, longitude } = pos.coords;
+      const res = await axios.get(`/api/geocode?lat=${latitude}&lon=${longitude}`);
+      setDetectedAddress(res.data.address || 'Unknown Address');
+    } catch (err) {
+      console.error(err);
+      setDetectedAddress('Failed to auto-detect location. Ensure GPS is enabled.');
+    }
+  };
+
+  useEffect(() => {
+    refreshDetectedLocation();
+  }, [simulatedMode]);
 
   // Attendance
   const [attendance, setAttendance] = useState(null); // today's attendance
@@ -539,7 +562,7 @@ export default function FODashboard({ user, onLogout }) {
                 <input 
                   type="checkbox" 
                   checked={simulatedMode}
-                  onChange={(e) => setSimulatedMode(e.target.checked)}
+                  onChange={(e) => handleSimulatedModeChange(e.target.checked)}
                   className="rounded text-sky-600 focus:ring-0 w-3 h-3 cursor-pointer mr-1"
                 />
                 <span>Simulate GPS</span>
@@ -553,8 +576,23 @@ export default function FODashboard({ user, onLogout }) {
           </div>
 
           {!checkedIn ? (
-            <div className="space-y-4 text-center py-2">
-              <p className="text-xs text-slate-400">Log your arrival to begin receiving location updates and recording consumer visits.</p>
+            <div className="space-y-4 text-left py-2">
+              <p className="text-xs text-slate-400 text-center">Log your arrival to begin receiving location updates and recording consumer visits.</p>
+              
+              <div className="space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
+                <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Detected Location (Read-only)</span>
+                <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
+                  <span>📍 {detectedAddress}</span>
+                  <button 
+                    type="button" 
+                    onClick={refreshDetectedLocation} 
+                    className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex-shrink-0 select-none cursor-pointer"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={() => handleAttendance('checkIn')}
                 disabled={gpsLoading}
@@ -580,6 +618,20 @@ export default function FODashboard({ user, onLogout }) {
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500">Start Address</span>
                   <div className="font-semibold text-slate-200 truncate">{attendance.checkIn.address}</div>
+                </div>
+              </div>
+
+              <div className="text-left space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
+                <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Current Detected Location (Read-only)</span>
+                <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
+                  <span>📍 {detectedAddress}</span>
+                  <button 
+                    type="button" 
+                    onClick={refreshDetectedLocation} 
+                    className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex-shrink-0 select-none cursor-pointer"
+                  >
+                    Refresh
+                  </button>
                 </div>
               </div>
 

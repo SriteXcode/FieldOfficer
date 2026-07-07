@@ -60,6 +60,19 @@ app.get("/api/visits", protect, getVisits);
 app.post("/api/locations", protect, logLiveLocation);
 app.get("/api/locations/history", protect, getLocationHistory);
 app.get("/api/locations/live-officers", protect, getLiveOfficers);
+app.get("/api/geocode", protect, async (req, res) => {
+  const { lat, lon } = req.query;
+  if (lat === undefined || lon === undefined) {
+    return res.status(400).json({ error: "lat and lon query parameters are required" });
+  }
+  try {
+    const { reverseGeocode } = require("./src/utils/geo.js");
+    const address = await reverseGeocode(Number(lat), Number(lon));
+    res.status(200).json({ address });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // 5. Settings routes
 app.get("/api/settings", protect, getSettings);
@@ -79,11 +92,16 @@ app.get("/health", (req, res) => {
 });
 
 const path = require("path");
-// Serve static assets in production
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../client/dist")));
+const fs = require("fs");
+
+// Serve static assets in production or if the client build exists
+const clientDistPath = path.join(__dirname, "../client/dist");
+const clientIndexHtml = path.join(clientDistPath, "index.html");
+
+if (process.env.NODE_ENV === "production" || fs.existsSync(clientIndexHtml)) {
+  app.use(express.static(clientDistPath));
   app.get("*", (req, res) => {
-    res.sendFile(path.resolve(__dirname, "../client", "dist", "index.html"));
+    res.sendFile(clientIndexHtml);
   });
 }
 
