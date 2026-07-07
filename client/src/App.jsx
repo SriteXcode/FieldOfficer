@@ -66,6 +66,36 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Set up Axios interceptors for handling 401 session expirations and attaching JWT tokens globally
+  useEffect(() => {
+    // 1. Request Interceptor to automatically attach standard Authorization Bearer header
+    const reqInterceptor = axios.interceptors.request.use((config) => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    // 2. Response Interceptor to capture token expiration redirecting to login
+    const resInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && error.response.status === 401) {
+          console.warn("Session expired. Redirecting to login...");
+          localStorage.removeItem('authToken');
+          setUser(null);
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.request.eject(reqInterceptor);
+      axios.interceptors.response.eject(resInterceptor);
+    };
+  }, []);
+
   // Check auth state on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -88,6 +118,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('authToken');
     setUser(null);
   };
 

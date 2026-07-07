@@ -25,8 +25,9 @@ const server = http.createServer(app);
 // Socket.IO configuration
 const io = new Server(server, {
   cors: {
-    origin: "*", // In production, restrict to Vite client URL
-    methods: ["GET", "POST"]
+    origin: ["https://fieldofficer-1.onrender.com", "http://localhost:3000", "http://localhost:5173"], 
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 

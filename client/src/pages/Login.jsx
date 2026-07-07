@@ -23,6 +23,9 @@ export default function Login({ onLoginSuccess }) {
     try {
       const res = await axios.post('/api/auth/login', { username, password });
       if (res.data && res.data.user) {
+        if (res.data.token) {
+          localStorage.setItem('authToken', res.data.token);
+        }
         onLoginSuccess(res.data.user);
       }
     } catch (err) {

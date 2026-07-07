@@ -19,7 +19,7 @@ export default function FODashboard({ user, onLogout }) {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [currentCoords, setCurrentCoords] = useState(null);
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
-  const [simulatedMode, setSimulatedMode] = useState(false);
+  const [simulatedMode, setSimulatedMode] = useState(() => localStorage.getItem('simulatedGPS') === 'true');
 
   // Attendance
   const [attendance, setAttendance] = useState(null); // today's attendance
@@ -95,6 +95,26 @@ export default function FODashboard({ user, onLogout }) {
       startLiveTracking();
     }
   }, [simulatedMode, checkedIn, checkedOut]);
+
+  // Persist simulated mode preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('simulatedGPS', simulatedMode ? 'true' : 'false');
+  }, [simulatedMode]);
+
+  // Intercept page exit/closure if shift is active
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (checkedIn && !checkedOut) {
+        e.preventDefault();
+        e.returnValue = 'You have an active shift checked-in. Closing or reloading this app will stop location tracking.';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [checkedIn, checkedOut]);
 
   // Sync today's attendance state
   const fetchTodayAttendance = async () => {
@@ -201,8 +221,8 @@ export default function FODashboard({ user, onLogout }) {
         const lngOffset = (Math.random() - 0.5) * 0.005;
         resolve({
           coords: {
-            latitude: 12.97159 + latOffset,
-            longitude: 77.59456 + lngOffset,
+            latitude: 26.8894 + latOffset,
+            longitude: 80.9388 + lngOffset,
             accuracy: 8
           }
         });
@@ -273,8 +293,8 @@ export default function FODashboard({ user, onLogout }) {
     };
 
     if (simulatedMode) {
-      let mockLat = 12.97159;
-      let mockLng = 77.59456;
+      let mockLat = 26.8894;
+      let mockLng = 80.9388;
       watchIdRef.current = setInterval(() => {
         mockLat += (Math.random() - 0.5) * 0.001;
         mockLng += (Math.random() - 0.5) * 0.001;
@@ -562,6 +582,12 @@ export default function FODashboard({ user, onLogout }) {
                   <div className="font-semibold text-slate-200 truncate">{attendance.checkIn.address}</div>
                 </div>
               </div>
+
+              {/* Background running warning banner */}
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[10px] text-amber-400 space-y-1 text-left">
+                <p className="font-bold flex items-center gap-1">⚠️ Keep App Active / Running</p>
+                <p>For background tracking to continue, minimize the app/tab instead of closing it. For optimal results, ensure location permission is set to <strong>"Allow all the time"</strong> in your device settings.</p>
+              </div>
               <button
                 onClick={() => handleAttendance('checkOut')}
                 disabled={gpsLoading}
@@ -578,10 +604,25 @@ export default function FODashboard({ user, onLogout }) {
               </button>
             </div>
           ) : (
-            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-900 text-center space-y-2">
+            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-900 text-center space-y-3">
               <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
               <h4 className="font-bold text-slate-200">Shift Completed</h4>
               <p className="text-xs text-slate-400">You have successfully checked out of today's shift. Total distance and hours have been summarized on the supervisor portal.</p>
+              
+              <button
+                onClick={() => handleAttendance('checkIn')}
+                disabled={gpsLoading}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 text-white font-bold rounded-xl transition shadow-lg shadow-emerald-600/10 flex items-center justify-center space-x-2"
+              >
+                {gpsLoading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <MapPin className="w-5 h-5" />
+                    <span>Check In Again</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
         </section>

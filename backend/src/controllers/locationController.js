@@ -80,6 +80,50 @@ async function logLiveLocation(req, res) {
       saveMockData("LiveLocation", mockLocations);
     }
 
+    // Update running distance in today's attendance record
+    let att = null;
+    const { calculateDistance } = require("../utils/geo.js");
+    try {
+      await connectToDatabase();
+      att = await Attendance.findOne({ userId: req.user.id, date: dateStr });
+    } catch (e) {
+      const mockAttendance = getMockData("Attendance");
+      att = mockAttendance.find(a => a.userId === req.user.id && a.date === dateStr);
+    }
+
+    if (att) {
+      let prevLat = null;
+      let prevLng = null;
+
+      if (prevPing) {
+        prevLat = prevPing.latitude;
+        prevLng = prevPing.longitude;
+      } else if (att.checkIn) {
+        prevLat = att.checkIn.latitude;
+        prevLng = att.checkIn.longitude;
+      }
+
+      if (prevLat !== null && prevLng !== null) {
+        const addedDist = calculateDistance(prevLat, prevLng, latitude, longitude);
+        att.distanceCovered = Number(((att.distanceCovered || 0) + addedDist).toFixed(2));
+        
+        // Save back
+        try {
+          await Attendance.updateOne(
+            { _id: att._id },
+            { $set: { distanceCovered: att.distanceCovered } }
+          );
+        } catch (e) {
+          const mockAttendance = getMockData("Attendance");
+          const idx = mockAttendance.findIndex(a => a._id === att._id || a.id === att.id);
+          if (idx !== -1) {
+            mockAttendance[idx].distanceCovered = att.distanceCovered;
+            saveMockData("Attendance", mockAttendance);
+          }
+        }
+      }
+    }
+
     // Broadcast live updates over Socket.IO
     const io = req.app.get("io");
     if (io) {
@@ -92,6 +136,10 @@ async function logLiveLocation(req, res) {
         battery,
         network,
         isSuspicious,
+        checkedIn: true,
+        checkedOut: false,
+        status: att ? att.status : "Present",
+        distanceCovered: att ? att.distanceCovered : 0,
         timestamp: now.toISOString()
       });
     }
@@ -150,7 +198,7 @@ async function getLiveOfficers(req, res) {
       return res.status(403).json({ error: "Unauthorized access." });
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = req.query.date || new Date().toISOString().split("T")[0];
 
     // Find all FOs under this supervisor
     let fos = [];

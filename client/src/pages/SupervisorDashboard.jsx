@@ -23,6 +23,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
   // Selected state for details
   const [selectedFO, setSelectedFO] = useState(null); // FO user object
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+  const [selectedState, setSelectedState] = useState('All');
   const [selectedFoHistory, setSelectedFoHistory] = useState([]); // List of locations
   const [selectedFoVisits, setSelectedFoVisits] = useState([]); // List of visits
   const [replayCoord, setReplayCoord] = useState(null); // Active coordinate for replay
@@ -35,6 +36,17 @@ export default function SupervisorDashboard({ user, onLogout }) {
   
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
+
+  const selectedDateRef = React.useRef(selectedDate);
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  const matchesState = (address) => {
+    if (selectedState === 'All') return true;
+    if (!address) return false;
+    return address.toLowerCase().includes(selectedState.toLowerCase());
+  };
   
   // Form states
   const [annTitle, setAnnTitle] = useState('');
@@ -53,13 +65,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const [mapPolyline, setMapPolyline] = useState([]);
   const [mapBoundsTrigger, setMapBoundsTrigger] = useState(0);
 
-  // Socket
+  // Socket Setup
   useEffect(() => {
-    // Fetch initial datasets
-    fetchLiveOfficers();
+    // Fetch initial announcements & settings on load
     fetchAnnouncements();
     fetchAuditLogs();
-    fetchAnalytics();
     fetchSettings();
 
     // Setup Socket connection
@@ -67,16 +77,27 @@ export default function SupervisorDashboard({ user, onLogout }) {
     socket.emit('join_room', `supervisor_${user.id}`);
 
     socket.on('location_update', (data) => {
-      // Real-time location feed
+      // Only process live socket updates if the supervisor is viewing today's date!
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (selectedDateRef.current !== todayStr) return;
+
+      // Real-time location and stats feed
       setOfficers(prev => prev.map(fo => {
         if (fo.userId === data.userId) {
           return {
             ...fo,
+            checkedIn: data.checkedIn !== undefined ? data.checkedIn : fo.checkedIn,
+            checkedOut: data.checkedOut !== undefined ? data.checkedOut : fo.checkedOut,
+            status: data.status || fo.status,
+            distanceCovered: data.distanceCovered !== undefined ? data.distanceCovered : fo.distanceCovered,
+            checkInTime: data.checkedIn && !fo.checkInTime ? data.timestamp : fo.checkInTime,
+            checkOutTime: data.checkedOut && !fo.checkOutTime ? data.timestamp : fo.checkOutTime,
             lastSeen: data.timestamp,
-            lastLocation: { lat: data.latitude, lng: data.longitude, accuracy: data.accuracy },
-            battery: data.battery,
-            network: data.network,
-            isSuspicious: data.isSuspicious
+            lastLocation: data.latitude ? { lat: data.latitude, lng: data.longitude, accuracy: data.accuracy } : fo.lastLocation,
+            battery: data.battery !== undefined ? data.battery : fo.battery,
+            network: data.network || fo.network,
+            isSuspicious: data.isSuspicious !== undefined ? data.isSuspicious : fo.isSuspicious,
+            lateMinutes: data.lateMinutes !== undefined ? data.lateMinutes : fo.lateMinutes
           };
         }
         return fo;
@@ -104,8 +125,10 @@ export default function SupervisorDashboard({ user, onLogout }) {
       setAnnouncements(prev => [ann, ...prev]);
     });
 
-    // Refresh live list every 60 seconds
-    const interval = setInterval(fetchLiveOfficers, 60000);
+    // Refresh live list for the current selected date every 60 seconds
+    const interval = setInterval(() => {
+      fetchLiveOfficers(selectedDateRef.current);
+    }, 60000);
 
     return () => {
       socket.disconnect();
@@ -113,14 +136,20 @@ export default function SupervisorDashboard({ user, onLogout }) {
     };
   }, [user.id]);
 
+  // Handle selected date changes - fetch active data for that day
+  useEffect(() => {
+    fetchLiveOfficers(selectedDate);
+    fetchAnalytics(selectedDate);
+  }, [selectedDate]);
+
   // Handle selected FO changes or date changes
   useEffect(() => {
     if (selectedFO) {
       fetchFoHistoryDetails();
     } else {
-      // No FO selected, show all checked in officers as live markers
+      // No FO selected, show all checked in officers as live markers (filtered by state)
       const liveMarkers = officers
-        .filter(fo => fo.lastLocation)
+        .filter(fo => fo.lastLocation && (selectedState === 'All' || matchesState(fo.checkIn?.address) || matchesState(fo.lastLocationAddress)))
         .map(fo => ({
           lat: fo.lastLocation.lat,
           lng: fo.lastLocation.lng,
@@ -131,11 +160,12 @@ export default function SupervisorDashboard({ user, onLogout }) {
       setMapMarkers(liveMarkers);
       setMapPolyline([]);
     }
-  }, [selectedFO, selectedDate, officers]);
+  }, [selectedFO, selectedState, officers]);
 
-  const fetchLiveOfficers = async () => {
+  const fetchLiveOfficers = async (date) => {
     try {
-      const res = await axios.get('/api/locations/live-officers');
+      const queryDate = date && typeof date === 'string' ? date : selectedDate;
+      const res = await axios.get(`/api/locations/live-officers?date=${queryDate}`);
       setOfficers(res.data.officers);
     } catch (e) {
       console.error(e);
@@ -160,9 +190,10 @@ export default function SupervisorDashboard({ user, onLogout }) {
     }
   };
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (date) => {
     try {
-      const res = await axios.get('/api/reports/analytics');
+      const queryDate = date && typeof date === 'string' ? date : selectedDate;
+      const res = await axios.get(`/api/reports/analytics?startDate=${queryDate}&endDate=${queryDate}`);
       setAnalytics(res.data);
     } catch (e) {
       console.error(e);
@@ -317,18 +348,27 @@ export default function SupervisorDashboard({ user, onLogout }) {
     setActiveWidgets(status);
   };
 
-  // Calculate statistics metrics
-  const totalOfficers = officers.length;
-  const activeRouteCount = officers.filter(o => o.checkedIn && !o.checkedOut).length;
-  const checkedInCount = officers.filter(o => o.checkedIn).length;
-  const checkedOutCount = officers.filter(o => o.checkedOut).length;
-  const totalDistance = officers.reduce((acc, curr) => acc + (curr.distanceCovered || 0), 0);
-  const lateCheckins = officers.filter(o => o.status === 'Late').length;
+  // Filter officers based on search name/username AND state
+  const filteredOfficers = officers.filter(fo => {
+    const matchesSearch = fo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          fo.username.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const checkInAddress = fo.checkIn?.address || '';
+    const lastAddress = fo.lastLocationAddress || '';
+    const matchesGeoState = selectedState === 'All' || 
+                            matchesState(checkInAddress) || 
+                            matchesState(lastAddress);
+                            
+    return matchesSearch && matchesGeoState;
+  });
 
-  const filteredOfficers = officers.filter(fo => 
-    fo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    fo.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Calculate statistics metrics for the filtered set
+  const totalOfficers = filteredOfficers.length;
+  const activeRouteCount = filteredOfficers.filter(o => o.checkedIn && !o.checkedOut).length;
+  const checkedInCount = filteredOfficers.filter(o => o.checkedIn).length;
+  const checkedOutCount = filteredOfficers.filter(o => o.checkedOut).length;
+  const totalDistance = filteredOfficers.reduce((acc, curr) => acc + (curr.distanceCovered || 0), 0);
+  const lateCheckins = filteredOfficers.filter(o => o.status === 'Late').length;
 
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
@@ -498,6 +538,22 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer"
                 />
+              </div>
+
+              {/* State Filter dropdown */}
+              <div className="flex items-center space-x-1 border-l border-slate-800 pl-3">
+                <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+                <select
+                  value={selectedState}
+                  onChange={(e) => setSelectedState(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-slate-900"
+                >
+                  <option value="All" className="bg-slate-900 text-slate-200">All States</option>
+                  <option value="Karnataka" className="bg-slate-900 text-slate-200">Karnataka</option>
+                  <option value="Maharashtra" className="bg-slate-900 text-slate-200">Maharashtra</option>
+                  <option value="Tamil Nadu" className="bg-slate-900 text-slate-200">Tamil Nadu</option>
+                  <option value="Delhi" className="bg-slate-900 text-slate-200">Delhi</option>
+                </select>
               </div>
 
               {/* CSV export */}

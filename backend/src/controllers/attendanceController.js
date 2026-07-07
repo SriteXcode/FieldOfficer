@@ -80,47 +80,76 @@ async function checkInOrOut(req, res) {
     let result = null;
 
     if (type === "checkIn") {
-      let alreadyCheckedIn = false;
+      let existingRecord = null;
       try {
         await connectToDatabase();
-        const existing = await Attendance.findOne({ userId: req.user.id, date: dateStr });
-        if (existing) alreadyCheckedIn = true;
+        existingRecord = await Attendance.findOne({ userId: req.user.id, date: dateStr });
       } catch (e) {
         const mockAttendance = getMockData("Attendance");
-        alreadyCheckedIn = mockAttendance.some(a => a.userId === req.user.id && a.date === dateStr);
+        existingRecord = mockAttendance.find(a => a.userId === req.user.id && a.date === dateStr);
       }
 
-      if (alreadyCheckedIn) {
-        return res.status(400).json({ error: "Already checked in today." });
-      }
-
-      try {
-        await connectToDatabase();
-        result = await Attendance.create({
-          userId: req.user.id,
-          date: dateStr,
-          checkIn: locationDetail,
-          checkOut: null,
-          status: isLate ? "Late" : "Present",
-        });
-      } catch (e) {
-        const mockAttendance = getMockData("Attendance");
-        const newAttendance = {
-          _id: `att_${Date.now()}`,
-          id: `att_${Date.now()}`,
-          userId: req.user.id,
-          date: dateStr,
-          checkIn: locationDetail,
-          checkOut: null,
-          status: isLate ? "Late" : "Present",
-          workingHours: 0,
-          distanceCovered: 0,
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
-        };
-        mockAttendance.push(newAttendance);
-        saveMockData("Attendance", mockAttendance);
-        result = newAttendance;
+      if (existingRecord) {
+        // If they have checked out already today, allow checking in again
+        if (existingRecord.checkOut) {
+          try {
+            await connectToDatabase();
+            result = await Attendance.findOneAndUpdate(
+              { userId: req.user.id, date: dateStr },
+              {
+                checkIn: locationDetail,
+                checkOut: null,
+                status: isLate ? "Late" : "Present",
+                workingHours: 0
+              },
+              { new: true }
+            );
+          } catch (e) {
+            const mockAttendance = getMockData("Attendance");
+            const idx = mockAttendance.findIndex(a => a.userId === req.user.id && a.date === dateStr);
+            if (idx !== -1) {
+              mockAttendance[idx].checkIn = locationDetail;
+              mockAttendance[idx].checkOut = null;
+              mockAttendance[idx].status = isLate ? "Late" : "Present";
+              mockAttendance[idx].workingHours = 0;
+              mockAttendance[idx].updatedAt = now.toISOString();
+              result = mockAttendance[idx];
+              saveMockData("Attendance", mockAttendance);
+            }
+          }
+        } else {
+          return res.status(400).json({ error: "Already checked in today." });
+        }
+      } else {
+        // Create new check-in
+        try {
+          await connectToDatabase();
+          result = await Attendance.create({
+            userId: req.user.id,
+            date: dateStr,
+            checkIn: locationDetail,
+            checkOut: null,
+            status: isLate ? "Late" : "Present",
+          });
+        } catch (e) {
+          const mockAttendance = getMockData("Attendance");
+          const newAttendance = {
+            _id: `att_${Date.now()}`,
+            id: `att_${Date.now()}`,
+            userId: req.user.id,
+            date: dateStr,
+            checkIn: locationDetail,
+            checkOut: null,
+            status: isLate ? "Late" : "Present",
+            workingHours: 0,
+            distanceCovered: 0,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString()
+          };
+          mockAttendance.push(newAttendance);
+          saveMockData("Attendance", mockAttendance);
+          result = newAttendance;
+        }
       }
 
       await logAction({
@@ -204,6 +233,25 @@ async function checkInOrOut(req, res) {
         action: "Check-out",
         details: `Field Officer checked out at ${address}. Worked: ${workingHours}m, Travelled: ${distanceCovered}km`,
         req
+      });
+    }
+
+    // Broadcast check-in / check-out to supervisor in real-time
+    const io = req.app.get("io");
+    if (io && req.user.supervisorId) {
+      io.to(`supervisor_${req.user.supervisorId}`).emit("location_update", {
+        userId: req.user.id,
+        name: req.user.name,
+        latitude,
+        longitude,
+        accuracy,
+        battery,
+        network,
+        checkedIn: type === "checkIn" || !!result.checkIn,
+        checkedOut: type === "checkOut",
+        status: result.status,
+        distanceCovered: result.distanceCovered || 0,
+        timestamp: now.toISOString()
       });
     }
 
