@@ -60,7 +60,9 @@ export default function FODashboard({ user, onLogout }) {
   const [alert, setAlert] = useState({ type: '', message: '' });
 
   const watchIdRef = useRef(null);
+  const pingIntervalRef = useRef(null);
   const syncIntervalRef = useRef(null);
+  const latestCoordsRef = useRef(null);
 
   // Monitor network status
   useEffect(() => {
@@ -256,6 +258,18 @@ export default function FODashboard({ user, onLogout }) {
         return;
       }
 
+      // If we already have a highly accurate recent position from watchPosition, use it
+      if (latestCoordsRef.current && latestCoordsRef.current.accuracy <= 30) {
+        resolve({
+          coords: {
+            latitude: latestCoordsRef.current.latitude,
+            longitude: latestCoordsRef.current.longitude,
+            accuracy: latestCoordsRef.current.accuracy
+          }
+        });
+        return;
+      }
+
       if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported by your browser."));
         return;
@@ -283,8 +297,16 @@ export default function FODashboard({ user, onLogout }) {
   // Clean up location watchers
   const stopLiveTracking = () => {
     if (watchIdRef.current) {
-      clearInterval(watchIdRef.current);
+      if (simulatedMode) {
+        clearInterval(watchIdRef.current);
+      } else {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
       watchIdRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
   };
 
@@ -328,7 +350,7 @@ export default function FODashboard({ user, onLogout }) {
         mockLng += (Math.random() - 0.5) * 0.001;
         setCurrentCoords({ lat: mockLat, lng: mockLng });
         pingLocation(mockLat, mockLng, 10);
-      }, 30000); // ping every 30s
+      }, 3000); // ping every 3s
       return;
     }
 
@@ -337,23 +359,39 @@ export default function FODashboard({ user, onLogout }) {
     // Trigger an immediate initial ping on start
     getCoordinates().then((pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
+      latestCoordsRef.current = { latitude, longitude, accuracy };
       setCurrentCoords({ lat: latitude, lng: longitude });
       setTelemetry(t => ({ ...t, accuracy }));
       pingLocation(latitude, longitude, accuracy);
     }).catch(err => console.error("Initial GPS fetch failed:", err));
 
-    // Setup 30s periodic tracking interval
-    watchIdRef.current = setInterval(async () => {
-      try {
-        const pos = await getCoordinates();
+    // Start watching position continuously to maintain GPS warm-lock
+    const options = {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
+        latestCoordsRef.current = { latitude, longitude, accuracy };
         setCurrentCoords({ lat: latitude, lng: longitude });
         setTelemetry(t => ({ ...t, accuracy }));
+      },
+      (err) => {
+        console.error("GPS Watch failed:", err);
+      },
+      options
+    );
+
+    // Setup 3s periodic tracking interval to ping server with latest coordinates
+    pingIntervalRef.current = setInterval(async () => {
+      if (latestCoordsRef.current) {
+        const { latitude, longitude, accuracy } = latestCoordsRef.current;
         await pingLocation(latitude, longitude, accuracy);
-      } catch (err) {
-        console.error("Periodic GPS fetch failed:", err);
       }
-    }, 30000); // ping every 30s
+    }, 3000); // ping every 3s
   };
 
   // Trigger Check-in / Out

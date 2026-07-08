@@ -44,13 +44,25 @@ async function logLiveLocation(req, res) {
       );
     }
 
-    // Geocode current live location
+    // Geocode current live location (optimized to save API quota on high-frequency pings)
     let address = "";
-    try {
-      const { reverseGeocode } = require("../utils/geo.js");
-      address = await reverseGeocode(latitude, longitude);
-    } catch (ge) {
-      console.error("Failed to reverse geocode live location", ge);
+    let shouldGeocode = true;
+    if (prevPing && prevPing.latitude && prevPing.longitude) {
+      const { calculateDistance } = require("../utils/geo.js");
+      const distFromLast = calculateDistance(prevPing.latitude, prevPing.longitude, latitude, longitude);
+      if (distFromLast < 0.05 && prevPing.address) { // Less than 50 meters
+        address = prevPing.address;
+        shouldGeocode = false;
+      }
+    }
+
+    if (shouldGeocode) {
+      try {
+        const { reverseGeocode } = require("../utils/geo.js");
+        address = await reverseGeocode(latitude, longitude);
+      } catch (ge) {
+        console.error("Failed to reverse geocode live location", ge);
+      }
     }
 
     let savedLoc = null;
