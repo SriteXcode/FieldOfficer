@@ -29,6 +29,25 @@ function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
 }
 
 async function reverseGeocode(lat, lon) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (apiKey) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === 'OK' && data.results && data.results.length > 0) {
+          return data.results[0].formatted_address;
+        } else {
+          console.warn("Google Geocoding failed, status:", data ? data.status : 'unknown');
+        }
+      }
+    } catch (err) {
+      console.error("Google Geocoding failed:", err);
+    }
+  }
+
+  // Fallback to OSM Nominatim
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
     

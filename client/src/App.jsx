@@ -17,7 +17,7 @@ function SessionMonitor({ children, user, onLogout }) {
   const navigate = useNavigate();
 
   // Inactivity timeout length (30 minutes default)
-  const INACTIVITY_LIMIT = 30 * 60 * 1000; 
+  const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; 
 
   const resetTimer = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -62,15 +62,55 @@ function SessionMonitor({ children, user, onLogout }) {
   return <>{children}</>;
 }
 
+// Route Guarding with PrivateRoute
+function PrivateRoute({ children, role }) {
+  const token = localStorage.getItem('token');
+  const userString = localStorage.getItem('user');
+  const user = userString ? JSON.parse(userString) : null;
+
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role) {
+    const roles = Array.isArray(role) ? role : [role];
+    const isAuthorized = roles.includes(user.role);
+    if (!isAuthorized) {
+      return <Navigate to="/login" replace />;
+    }
+  }
+
+  return children;
+}
+
+// Redirects users to their respective dashboard based on their role
+function DashboardRedirect() {
+  const userString = localStorage.getItem('user');
+  const user = userString ? JSON.parse(userString) : null;
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'Field Officer') return <Navigate to="/fo/dashboard" replace />;
+  if (user.role === 'Supervisor') return <Navigate to="/supervisor/dashboard" replace />;
+  if (user.role === 'Regional Manager') return <Navigate to="/rm/dashboard" replace />;
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    const userString = localStorage.getItem('user');
+    try {
+      return userString ? JSON.parse(userString) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(false);
 
   // Set up Axios interceptors for handling 401 session expirations and attaching JWT tokens globally
   useEffect(() => {
     // 1. Request Interceptor to automatically attach standard Authorization Bearer header
     const reqInterceptor = axios.interceptors.request.use((config) => {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -83,7 +123,7 @@ export default function App() {
       (error) => {
         if (error.response && error.response.status === 401) {
           console.warn("Session expired. Redirecting to login...");
-          localStorage.removeItem('authToken');
+          localStorage.clear();
           
           const errMsg = error.response.data?.error || '';
           if (errMsg.includes('another device')) {
@@ -104,29 +144,41 @@ export default function App() {
     };
   }, []);
 
-  // Check auth state on mount
+  // Sync/Verify session with the backend on mount
   useEffect(() => {
     const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUser(null);
+        localStorage.clear();
+        return;
+      }
       try {
         const res = await axios.get('/api/auth/me');
         if (res.data && res.data.user) {
           setUser(res.data.user);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+        } else {
+          setUser(null);
+          localStorage.clear();
         }
       } catch (err) {
-        setUser(null);
-      } finally {
-        setLoading(false);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          setUser(null);
+          localStorage.clear();
+        }
       }
     };
     checkAuth();
   }, []);
 
   const handleLoginSuccess = (userData) => {
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    localStorage.clear();
     setUser(null);
   };
 
@@ -148,66 +200,53 @@ export default function App() {
           {/* Public Routes */}
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
+            element={user ? <Navigate to="/" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
           />
           <Route 
             path="/register" 
-            element={user ? <Navigate to="/dashboard" replace /> : <Register />} 
+            element={user ? <Navigate to="/" replace /> : <Register />} 
           />
 
-          {/* Protected Role Router */}
+          {/* Protected Root Redirection Route */}
           <Route 
-            path="/dashboard" 
+            path="/" 
             element={
-              user ? (
-                user.role === 'Field Officer' ? (
-                  <Navigate to="/dashboard/fo" replace />
-                ) : user.role === 'Supervisor' ? (
-                  <Navigate to="/dashboard/supervisor" replace />
-                ) : (
-                  <Navigate to="/dashboard/rm" replace />
-                )
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              <PrivateRoute>
+                <DashboardRedirect />
+              </PrivateRoute>
             } 
           />
 
+          {/* Protected Dashboard Routes */}
           <Route 
-            path="/dashboard/fo" 
+            path="/fo/dashboard" 
             element={
-              user && user.role === 'Field Officer' ? (
+              <PrivateRoute role="Field Officer">
                 <FODashboard user={user} onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              </PrivateRoute>
             } 
           />
 
           <Route 
-            path="/dashboard/supervisor" 
+            path="/supervisor/dashboard" 
             element={
-              user && user.role === 'Supervisor' ? (
+              <PrivateRoute role="Supervisor">
                 <SupervisorDashboard user={user} onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              </PrivateRoute>
             } 
           />
 
           <Route 
-            path="/dashboard/rm" 
+            path="/rm/dashboard" 
             element={
-              user && user.role === 'Regional Manager' ? (
+              <PrivateRoute role="Regional Manager">
                 <RMDashboard user={user} onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              </PrivateRoute>
             } 
           />
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Catch-all redirect to Home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </SessionMonitor>
     </BrowserRouter>
