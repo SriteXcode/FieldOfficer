@@ -22,6 +22,7 @@ export default function FODashboard({ user, onLogout }) {
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
   const [simulatedMode, setSimulatedMode] = useState(() => localStorage.getItem('simulatedGPS') === 'true');
   const [detectedAddress, setDetectedAddress] = useState('Detecting location...');
+  const [gpsError, setGpsError] = useState('');
 
   const handleSimulatedModeChange = (checked) => {
     setSimulatedMode(checked);
@@ -283,13 +284,13 @@ export default function FODashboard({ user, onLogout }) {
             navigator.geolocation.getCurrentPosition(
               resolve,
               reject,
-              { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
+              { enableHighAccuracy: false, timeout: 20000, maximumAge: 5000 }
             );
           } else {
             reject(err);
           }
         },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
       );
     });
   };
@@ -308,6 +309,7 @@ export default function FODashboard({ user, onLogout }) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;
     }
+    setGpsError('');
   };
 
   // Watch position for continuous tracking
@@ -354,7 +356,10 @@ export default function FODashboard({ user, onLogout }) {
       return;
     }
 
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setGpsError("Geolocation is not supported by your browser.");
+      return;
+    }
 
     // Trigger an immediate initial ping on start
     getCoordinates().then((pos) => {
@@ -363,13 +368,17 @@ export default function FODashboard({ user, onLogout }) {
       setCurrentCoords({ lat: latitude, lng: longitude });
       setTelemetry(t => ({ ...t, accuracy }));
       pingLocation(latitude, longitude, accuracy);
-    }).catch(err => console.error("Initial GPS fetch failed:", err));
+      setGpsError('');
+    }).catch(err => {
+      console.error("Initial GPS fetch failed:", err);
+      setGpsError("Initial GPS lock failed. Retrying in background...");
+    });
 
     // Start watching position continuously to maintain GPS warm-lock
     const options = {
       enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000
+      maximumAge: 3000, // Allow slightly cached position (3s)
+      timeout: 30000 // Give device up to 30s to obtain lock
     };
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -378,9 +387,19 @@ export default function FODashboard({ user, onLogout }) {
         latestCoordsRef.current = { latitude, longitude, accuracy };
         setCurrentCoords({ lat: latitude, lng: longitude });
         setTelemetry(t => ({ ...t, accuracy }));
+        setGpsError(''); // clear any errors
       },
       (err) => {
         console.error("GPS Watch failed:", err);
+        let errMsg = "GPS error occurred.";
+        if (err.code === err.PERMISSION_DENIED) {
+          errMsg = "Location permission denied. Please allow Precise Location permission in browser/device settings.";
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          errMsg = "Location signal unavailable. Move outdoors or near a window for better satellite visibility.";
+        } else if (err.code === err.TIMEOUT) {
+          errMsg = "GPS request timed out. Trying again to acquire satellite lock...";
+        }
+        setGpsError(errMsg);
       },
       options
     );
@@ -611,6 +630,17 @@ export default function FODashboard({ user, onLogout }) {
           <div className={`flex items-start space-x-2.5 p-4 rounded-xl border ${alert.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'} text-xs`}>
             {alert.type === 'success' ? <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" /> : <CloudLightning className="w-4 h-4 flex-shrink-0 mt-0.5" />}
             <span className="font-medium">{alert.message}</span>
+          </div>
+        )}
+
+        {/* GPS Error Alert */}
+        {gpsError && (
+          <div className="flex items-start space-x-2.5 p-4 rounded-xl border bg-rose-500/10 border-rose-500/20 text-rose-400 text-xs">
+            <CloudLightning className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-400" />
+            <div className="space-y-1">
+              <span className="font-semibold block">GPS Status Banner</span>
+              <span className="font-medium text-rose-300">{gpsError}</span>
+            </div>
           </div>
         )}
 

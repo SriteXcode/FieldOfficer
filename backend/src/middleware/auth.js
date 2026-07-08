@@ -7,14 +7,9 @@ const JWT_SECRET = process.env.JWT_SECRET || "field-officer-super-secret-key-987
 async function protect(req, res, next) {
   let token = "";
 
-  // 1. Check Authorization header
+  // Check Authorization header
   if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
     token = req.headers.authorization.split(" ")[1];
-  } 
-  // 2. Check cookies
-  else if (req.headers.cookie) {
-    const match = req.headers.cookie.match(/token=([^;]+)/);
-    if (match) token = match[1];
   }
 
   if (!token) {

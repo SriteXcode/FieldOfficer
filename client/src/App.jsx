@@ -63,37 +63,31 @@ function SessionMonitor({ children, user, onLogout }) {
 }
 
 // Route Guarding with PrivateRoute
-function PrivateRoute({ children, role }) {
-  const token = localStorage.getItem('token');
+const PrivateRoute = ({ children, role }) => {
   const userString = localStorage.getItem('user');
   const user = userString ? JSON.parse(userString) : null;
-
-  if (!token || !user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!user) return <Navigate to="/login" />;
 
   if (role) {
     const roles = Array.isArray(role) ? role : [role];
     const isAuthorized = roles.includes(user.role);
-    if (!isAuthorized) {
-      return <Navigate to="/login" replace />;
-    }
+    if (!isAuthorized) return <Navigate to="/login" />;
   }
 
   return children;
-}
+};
 
 // Redirects users to their respective dashboard based on their role
-function DashboardRedirect() {
+const DashboardRedirect = () => {
   const userString = localStorage.getItem('user');
   const user = userString ? JSON.parse(userString) : null;
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'Field Officer') return <Navigate to="/fo/dashboard" replace />;
-  if (user.role === 'Supervisor') return <Navigate to="/supervisor/dashboard" replace />;
-  if (user.role === 'Regional Manager') return <Navigate to="/rm/dashboard" replace />;
-  return <Navigate to="/login" replace />;
-}
+  if (!user) return <Navigate to="/login" />;
+  if (user.role === 'Field Officer') return <Navigate to="/fo/dashboard" />;
+  if (user.role === 'Supervisor') return <Navigate to="/supervisor/dashboard" />;
+  if (user.role === 'Regional Manager') return <Navigate to="/rm/dashboard" />;
+  return <Navigate to="/login" />;
+};
 
 export default function App() {
   const [user, setUser] = useState(() => {

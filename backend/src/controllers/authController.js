@@ -201,12 +201,6 @@ async function login(req, res) {
       req
     });
 
-    // Set cookie
-    res.setHeader(
-      "Set-Cookie",
-      `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24 * 30};`
-    );
-
     return res.status(200).json({
       message: "Login successful",
       user: userPayload,
@@ -227,11 +221,6 @@ async function logout(req, res) {
         req
       });
     }
-
-    res.setHeader(
-      "Set-Cookie",
-      `token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0;`
-    );
 
     return res.status(200).json({ message: "Logout successful" });
   } catch (error) {
