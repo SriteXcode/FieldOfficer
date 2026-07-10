@@ -10,7 +10,7 @@ async function logLiveLocation(req, res) {
       return res.status(403).json({ error: "Only Field Officers can send live locations." });
     }
 
-    const { latitude, longitude, accuracy, battery, network, device } = req.body;
+    const { latitude, longitude, accuracy, battery, network, device, gpsTimestamp, webdriver } = req.body;
 
     if (latitude === undefined || longitude === undefined) {
       return res.status(400).json({ error: "Latitude and Longitude are required." });
@@ -20,29 +20,38 @@ async function logLiveLocation(req, res) {
     const dateStr = now.toISOString().split("T")[0];
 
     // Fraud Detection
-    let isSuspicious = false;
-    let prevPing = null;
+    let prevPings = [];
     try {
       await connectToDatabase();
-      prevPing = await LiveLocation.findOne({ userId: req.user.id, date: dateStr }).sort({ timestamp: -1 });
+      prevPings = await LiveLocation.find({ userId: req.user.id, date: dateStr })
+        .sort({ timestamp: -1 })
+        .limit(3)
+        .lean();
     } catch (e) {
       const mockLocations = getMockData("LiveLocation");
-      const pings = mockLocations
+      prevPings = mockLocations
         .filter(l => l.userId === req.user.id && l.date === dateStr)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      if (pings.length > 0) prevPing = pings[0];
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 3);
     }
 
-    if (prevPing) {
-      isSuspicious = isSpeedUnrealistic(
-        prevPing.latitude,
-        prevPing.longitude,
-        prevPing.timestamp,
-        latitude,
-        longitude,
-        now
-      );
-    }
+    const prevPing = prevPings[0] || null;
+
+    const { verifyLocationPayload } = require("../utils/geo.js");
+    const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    
+    const verification = await verifyLocationPayload({
+      latitude,
+      longitude,
+      accuracy,
+      gpsTimestamp,
+      webdriver,
+      ip: clientIp,
+      prevPings
+    });
+    
+    const isSuspicious = verification.isSuspicious;
+    const suspiciousReason = verification.suspiciousReason;
 
     // Geocode current live location (optimized to save API quota on high-frequency pings)
     let address = "";
@@ -79,6 +88,8 @@ async function logLiveLocation(req, res) {
         device,
         address,
         timestamp: now,
+        isSuspicious,
+        suspiciousReason
       });
     } catch (e) {
       const mockLocations = getMockData("LiveLocation");
@@ -96,6 +107,8 @@ async function logLiveLocation(req, res) {
         device,
         address,
         timestamp: now.toISOString(),
+        isSuspicious,
+        suspiciousReason,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };
@@ -159,6 +172,7 @@ async function logLiveLocation(req, res) {
         battery,
         network,
         isSuspicious,
+        suspiciousReason,
         checkedIn: true,
         checkedOut: false,
         status: att ? att.status : "Present",
@@ -315,6 +329,8 @@ async function getLiveOfficers(req, res) {
         lastLocationAddress: lastPing ? (lastPing.address || null) : (att?.checkIn?.address || null),
         battery: lastPing ? lastPing.battery : (att?.checkIn?.battery || null),
         network: lastPing ? lastPing.network : (att?.checkIn?.network || null),
+        isSuspicious: lastPing ? !!lastPing.isSuspicious : (att?.checkIn ? !!att.checkIn.isSuspicious : false),
+        suspiciousReason: lastPing ? (lastPing.suspiciousReason || "") : (att?.checkIn ? (att.checkIn.suspiciousReason || "") : ""),
       });
     }
 

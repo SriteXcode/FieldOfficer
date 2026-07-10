@@ -12,6 +12,8 @@ const LiveLocationSchema = new mongoose.Schema(
     device: { type: String },
     address: { type: String },
     timestamp: { type: Date, default: Date.now },
+    isSuspicious: { type: Boolean, default: false },
+    suspiciousReason: { type: String, default: "" }
   },
   { timestamps: true }
 );

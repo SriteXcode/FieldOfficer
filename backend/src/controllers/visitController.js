@@ -4,6 +4,8 @@ const { reverseGeocode } = require("../utils/geo.js");
 const { logAction } = require("../utils/audit.js");
 const { getMockData, saveMockData, connectToDatabase } = require("../config/db.js");
 
+const MAX_ACCEPTABLE_ACCURACY_METERS = 100;
+
 async function logVisit(req, res) {
   try {
     if (req.user.role !== "Field Officer") {
@@ -22,12 +24,57 @@ async function logVisit(req, res) {
       network, 
       accuracy, 
       device, 
-      browser 
+      browser,
+      gpsTimestamp,
+      webdriver
     } = req.body;
 
     if (!consumerName || latitude === undefined || longitude === undefined) {
       return res.status(400).json({ error: "Consumer name and coordinates are required." });
     }
+
+    const numericAccuracy = Number(accuracy);
+    if (!Number.isFinite(numericAccuracy) || numericAccuracy > MAX_ACCEPTABLE_ACCURACY_METERS) {
+      return res.status(400).json({
+        error: `GPS accuracy must be ${MAX_ACCEPTABLE_ACCURACY_METERS}m or better. Current accuracy: ${Number.isFinite(numericAccuracy) ? Math.round(numericAccuracy) : "unknown"}m.`
+      });
+    }
+
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0];
+
+    // Fraud Detection
+    const LiveLocation = require("../models/LiveLocation.js");
+    let prevPings = [];
+    try {
+      await connectToDatabase();
+      prevPings = await LiveLocation.find({ userId: req.user.id, date: dateStr })
+        .sort({ timestamp: -1 })
+        .limit(3)
+        .lean();
+    } catch (e) {
+      const mockLocations = getMockData("LiveLocation");
+      prevPings = mockLocations
+        .filter(l => l.userId === req.user.id && l.date === dateStr)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 3);
+    }
+
+    const { verifyLocationPayload } = require("../utils/geo.js");
+    const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+    const verification = await verifyLocationPayload({
+      latitude,
+      longitude,
+      accuracy,
+      gpsTimestamp,
+      webdriver,
+      ip: clientIp,
+      prevPings
+    });
+    
+    const isSuspicious = verification.isSuspicious;
+    const suspiciousReason = verification.suspiciousReason;
 
     // Verify address
     const detectedAddress = await reverseGeocode(latitude, longitude);
@@ -38,7 +85,6 @@ async function logVisit(req, res) {
       return res.status(400).json({ error: "No supervisor is assigned to you." });
     }
 
-    const now = new Date();
     let result = null;
 
     try {
@@ -59,7 +105,9 @@ async function logVisit(req, res) {
         network,
         accuracy,
         device: device || "Unknown Device",
-        browser: browser || "Unknown Browser"
+        browser: browser || "Unknown Browser",
+        isSuspicious,
+        suspiciousReason
       });
     } catch (e) {
       const mockVisits = getMockData("Visit");
@@ -83,6 +131,8 @@ async function logVisit(req, res) {
         accuracy,
         device: device || "Unknown Device",
         browser: browser || "Unknown Browser",
+        isSuspicious,
+        suspiciousReason,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString()
       };

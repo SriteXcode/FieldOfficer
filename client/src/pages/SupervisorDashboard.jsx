@@ -113,6 +113,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
             battery: data.battery !== undefined ? data.battery : fo.battery,
             network: data.network || fo.network,
             isSuspicious: data.isSuspicious !== undefined ? data.isSuspicious : fo.isSuspicious,
+            suspiciousReason: data.suspiciousReason !== undefined ? data.suspiciousReason : fo.suspiciousReason,
             lateMinutes: data.lateMinutes !== undefined ? data.lateMinutes : fo.lateMinutes
           };
         }
@@ -713,11 +714,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
                 <span className="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Flagged Incidents</span>
                 <div className="space-y-2">
                   {officers.filter(fo => fo.isSuspicious || (fo.battery && fo.battery < 20)).map((fo, idx) => (
-                    <div key={idx} className="flex items-center space-x-2 text-[10px] text-slate-300">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    <div key={idx} className="flex items-start space-x-2 text-[10px] text-slate-300">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
                       <span>
                         <strong>{fo.name}</strong>:{' '}
-                        {fo.isSuspicious ? 'Suspicious location jumps detected (mock speed threshold crossed).' : ''}
+                        {fo.isSuspicious ? (fo.suspiciousReason || 'Suspicious location anomalies detected.') : ''}
                         {!fo.isSuspicious && fo.battery && fo.battery < 20 ? 'Battery level extremely low (< 20%).' : ''}
                       </span>
                     </div>
@@ -731,7 +732,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
               {/* Security info */}
               <div className="bg-slate-900/35 border border-slate-850 p-4 rounded-xl text-[10.5px] text-slate-400 space-y-1">
                 <span className="font-bold text-slate-350 block">ℹ️ Location Security Notes:</span>
-                <p>Location checks utilize browser-based Geolocation API coordinates exclusively. Server-side anomaly detection flags sudden, realistic-jump velocity triggers (&gt;150 km/h) to capture mock wrappers and spoofing. Accuracy thresholds (±50m) are monitored dynamically.</p>
+                <p>Location checks utilize browser-based Geolocation API coordinates. Server-side security flags automated agents, stale GPS hardware timestamps, zero-drift mock location providers (frequently used in developer options spoofers), and network IP vs reported GPS mismatches.</p>
               </div>
             </div>
           </section>

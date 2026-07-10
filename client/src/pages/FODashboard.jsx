@@ -7,6 +7,11 @@ import {
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
 
+const MAX_ACCEPTABLE_ACCURACY_METERS = 100;
+const RECENT_COORDS_MAX_AGE_MS = 15000;
+const GPS_LOCK_TIMEOUT_MS = 45000;
+const SINGLE_GPS_ATTEMPT_TIMEOUT_MS = 15000;
+
 export default function FODashboard({ user, onLogout }) {
   // UI states
   const [loading, setLoading] = useState(true);
@@ -20,22 +25,49 @@ export default function FODashboard({ user, onLogout }) {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [currentCoords, setCurrentCoords] = useState(null);
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
-  const [simulatedMode, setSimulatedMode] = useState(() => localStorage.getItem('simulatedGPS') === 'true');
   const [detectedAddress, setDetectedAddress] = useState('Detecting location...');
   const [gpsError, setGpsError] = useState('');
 
-  const handleSimulatedModeChange = (checked) => {
-    setSimulatedMode(checked);
-    localStorage.setItem('simulatedGPS', checked ? 'true' : 'false');
+  const pingLocation = async (lat, lng, acc) => {
+    if (acc > MAX_ACCEPTABLE_ACCURACY_METERS) {
+      setGpsError(`Location accuracy is ±${Math.round(acc)}m. Waiting for ±${Math.round(MAX_ACCEPTABLE_ACCURACY_METERS)}m or better before sending.`);
+      return;
+    }
+
+    const locationPing = {
+      latitude: lat,
+      longitude: lng,
+      accuracy: acc,
+      battery: telemetry.battery,
+      network: telemetry.network,
+      device: navigator.userAgent,
+      gpsTimestamp: latestCoordsRef.current?.gpsTimestamp || Date.now(),
+      webdriver: navigator.webdriver || false
+    };
+
+    if (navigator.onLine) {
+      try {
+        await axios.post('/api/locations', locationPing);
+      } catch (e) {
+        await addToQueue('locations', locationPing);
+        updateQueueSize();
+      }
+    } else {
+      await addToQueue('locations', locationPing);
+      updateQueueSize();
+    }
   };
 
   const refreshDetectedLocation = async () => {
     setDetectedAddress('Detecting location...');
     try {
       const pos = await getCoordinates();
-      const { latitude, longitude } = pos.coords;
+      const { latitude, longitude, accuracy } = pos.coords;
       const res = await axios.get(`/api/geocode?lat=${latitude}&lon=${longitude}`);
       setDetectedAddress(res.data.address || 'Unknown Address');
+      if (attendance?.checkIn && !attendance?.checkOut) {
+        await pingLocation(latitude, longitude, accuracy);
+      }
     } catch (err) {
       console.error(err);
       setDetectedAddress('Failed to auto-detect location. Ensure GPS is enabled.');
@@ -44,7 +76,7 @@ export default function FODashboard({ user, onLogout }) {
 
   useEffect(() => {
     refreshDetectedLocation();
-  }, [simulatedMode]);
+  }, []);
 
   // Attendance
   const [attendance, setAttendance] = useState(null); // today's attendance
@@ -115,18 +147,7 @@ export default function FODashboard({ user, onLogout }) {
   const checkedIn = !!attendance?.checkIn;
   const checkedOut = !!attendance?.checkOut;
 
-  // Restart live tracking when simulation mode toggles
-  useEffect(() => {
-    if (checkedIn && !checkedOut) {
-      stopLiveTracking();
-      startLiveTracking();
-    }
-  }, [simulatedMode, checkedIn, checkedOut]);
 
-  // Persist simulated mode preference to localStorage
-  useEffect(() => {
-    localStorage.setItem('simulatedGPS', simulatedMode ? 'true' : 'false');
-  }, [simulatedMode]);
 
   // Intercept page exit/closure if shift is active
   useEffect(() => {
@@ -243,54 +264,107 @@ export default function FODashboard({ user, onLogout }) {
     }
   };
 
-  // Geolocation API fetch coordinates wrapper with low accuracy fallbacks
-  const getCoordinates = () => {
+  // Geolocation API fetch coordinates wrapper. Critical actions require <=100m accuracy.
+  const getCoordinates = ({ requireAccurate = false } = {}) => {
     return new Promise((resolve, reject) => {
-      if (simulatedMode) {
-        const latOffset = (Math.random() - 0.5) * 0.005;
-        const lngOffset = (Math.random() - 0.5) * 0.005;
-        resolve({
-          coords: {
-            latitude: 26.8467 + latOffset,
-            longitude: 80.9462 + lngOffset,
-            accuracy: 8
-          }
-        });
-        return;
-      }
 
-      // If we already have a highly accurate recent position from watchPosition, use it
-      if (latestCoordsRef.current && latestCoordsRef.current.accuracy <= 30) {
+      const now = Date.now();
+      const latestCoordsAge = latestCoordsRef.current?.timestamp
+        ? now - latestCoordsRef.current.timestamp
+        : Number.POSITIVE_INFINITY;
+
+      // If we already have a recent accurate position from watchPosition, use it.
+      if (
+        latestCoordsRef.current &&
+        latestCoordsAge <= RECENT_COORDS_MAX_AGE_MS &&
+        (!requireAccurate || latestCoordsRef.current.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS)
+      ) {
         resolve({
           coords: {
             latitude: latestCoordsRef.current.latitude,
             longitude: latestCoordsRef.current.longitude,
             accuracy: latestCoordsRef.current.accuracy
-          }
+          },
+          timestamp: latestCoordsRef.current.gpsTimestamp || Date.now()
         });
         return;
       }
+
+      const updatePositionState = (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        latestCoordsRef.current = { 
+          latitude, 
+          longitude, 
+          accuracy, 
+          timestamp: Date.now(), 
+          gpsTimestamp: pos.timestamp || Date.now() 
+        };
+        setCurrentCoords({ lat: latitude, lng: longitude });
+        setTelemetry(t => ({ ...t, accuracy }));
+      };
 
       if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported by your browser."));
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        resolve,
-        (err) => {
-          if (err.code === err.TIMEOUT) {
-            console.warn("GPS High Accuracy timed out. Retrying with low accuracy...");
-            navigator.geolocation.getCurrentPosition(
-              resolve,
-              reject,
-              { enableHighAccuracy: false, timeout: 20000, maximumAge: 5000 }
-            );
+      if (requireAccurate) {
+        const startedAt = Date.now();
+        let bestPosition = null;
+
+        const rejectWithBestAccuracy = (fallbackMessage) => {
+          if (bestPosition?.coords?.accuracy) {
+            reject(new Error(`GPS accuracy is ±${Math.round(bestPosition.coords.accuracy)}m. Need ${MAX_ACCEPTABLE_ACCURACY_METERS}m or better. Move outdoors, enable Precise Location, then try again.`));
           } else {
-            reject(err);
+            reject(new Error(fallbackMessage));
           }
+        };
+
+        const tryAcquireAccuratePosition = () => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              updatePositionState(pos);
+
+              if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
+                bestPosition = pos;
+              }
+
+              if (pos.coords.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS) {
+                setGpsError('');
+                resolve(pos);
+                return;
+              }
+
+              if (Date.now() - startedAt >= GPS_LOCK_TIMEOUT_MS) {
+                rejectWithBestAccuracy("Could not get an accurate GPS lock. Need 100m or better.");
+                return;
+              }
+
+              setGpsError(`Waiting for better GPS accuracy. Current: ±${Math.round(pos.coords.accuracy)}m, required: ±${MAX_ACCEPTABLE_ACCURACY_METERS}m.`);
+              setTimeout(tryAcquireAccuratePosition, 1000);
+            },
+            (err) => {
+              if (Date.now() - startedAt >= GPS_LOCK_TIMEOUT_MS) {
+                rejectWithBestAccuracy(err.message || "GPS request timed out.");
+                return;
+              }
+              setTimeout(tryAcquireAccuratePosition, 1000);
+            },
+            { enableHighAccuracy: true, timeout: SINGLE_GPS_ATTEMPT_TIMEOUT_MS, maximumAge: 0 }
+          );
+        };
+
+        tryAcquireAccuratePosition();
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          updatePositionState(pos);
+          resolve(pos);
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
+        reject,
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
     });
   };
@@ -298,11 +372,7 @@ export default function FODashboard({ user, onLogout }) {
   // Clean up location watchers
   const stopLiveTracking = () => {
     if (watchIdRef.current) {
-      if (simulatedMode) {
-        clearInterval(watchIdRef.current);
-      } else {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
+      navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     if (pingIntervalRef.current) {
@@ -316,46 +386,6 @@ export default function FODashboard({ user, onLogout }) {
   const startLiveTracking = () => {
     stopLiveTracking();
 
-    const pingLocation = async (lat, lng, acc) => {
-      const locationPing = {
-        latitude: lat,
-        longitude: lng,
-        accuracy: acc,
-        battery: telemetry.battery,
-        network: telemetry.network,
-        device: navigator.userAgent
-      };
-
-      if (navigator.onLine) {
-        try {
-          await axios.post('/api/locations', locationPing);
-        } catch (e) {
-          await addToQueue('locations', locationPing);
-          updateQueueSize();
-        }
-      } else {
-        await addToQueue('locations', locationPing);
-        updateQueueSize();
-      }
-    };
-
-    if (simulatedMode) {
-      let mockLat = 26.8467;
-      let mockLng = 80.9462;
-      
-      // Immediate ping
-      setCurrentCoords({ lat: mockLat, lng: mockLng });
-      pingLocation(mockLat, mockLng, 10);
-
-      watchIdRef.current = setInterval(() => {
-        mockLat += (Math.random() - 0.5) * 0.001;
-        mockLng += (Math.random() - 0.5) * 0.001;
-        setCurrentCoords({ lat: mockLat, lng: mockLng });
-        pingLocation(mockLat, mockLng, 10);
-      }, 3000); // ping every 3s
-      return;
-    }
-
     if (!navigator.geolocation) {
       setGpsError("Geolocation is not supported by your browser.");
       return;
@@ -364,7 +394,13 @@ export default function FODashboard({ user, onLogout }) {
     // Trigger an immediate initial ping on start
     getCoordinates().then((pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
-      latestCoordsRef.current = { latitude, longitude, accuracy };
+      latestCoordsRef.current = { 
+        latitude, 
+        longitude, 
+        accuracy, 
+        timestamp: Date.now(), 
+        gpsTimestamp: pos.timestamp || Date.now() 
+      };
       setCurrentCoords({ lat: latitude, lng: longitude });
       setTelemetry(t => ({ ...t, accuracy }));
       pingLocation(latitude, longitude, accuracy);
@@ -384,7 +420,13 @@ export default function FODashboard({ user, onLogout }) {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        latestCoordsRef.current = { latitude, longitude, accuracy };
+        latestCoordsRef.current = { 
+          latitude, 
+          longitude, 
+          accuracy, 
+          timestamp: Date.now(), 
+          gpsTimestamp: pos.timestamp || Date.now() 
+        };
         setCurrentCoords({ lat: latitude, lng: longitude });
         setTelemetry(t => ({ ...t, accuracy }));
         setGpsError(''); // clear any errors
@@ -404,13 +446,13 @@ export default function FODashboard({ user, onLogout }) {
       options
     );
 
-    // Setup 3s periodic tracking interval to ping server with latest coordinates
+    // Setup 1m periodic tracking interval to ping server with latest coordinates
     pingIntervalRef.current = setInterval(async () => {
       if (latestCoordsRef.current) {
         const { latitude, longitude, accuracy } = latestCoordsRef.current;
         await pingLocation(latitude, longitude, accuracy);
       }
-    }, 3000); // ping every 3s
+    }, 60000); // ping every 1 minute
   };
 
   // Trigger Check-in / Out
@@ -419,7 +461,7 @@ export default function FODashboard({ user, onLogout }) {
     setAlert({ type: '', message: '' });
 
     try {
-      const pos = await getCoordinates();
+      const pos = await getCoordinates({ requireAccurate: true });
       const { latitude, longitude, accuracy } = pos.coords;
       
       const payload = {
@@ -430,7 +472,9 @@ export default function FODashboard({ user, onLogout }) {
         battery: telemetry.battery,
         network: telemetry.network,
         device: navigator.userAgent,
-        browser: navigator.vendor || 'Chrome/Safari'
+        browser: navigator.vendor || 'Chrome/Safari',
+        gpsTimestamp: pos.timestamp || Date.now(),
+        webdriver: navigator.webdriver || false
       };
 
       if (online) {
@@ -501,7 +545,7 @@ export default function FODashboard({ user, onLogout }) {
     setAlert({ type: '', message: '' });
 
     try {
-      const pos = await getCoordinates();
+      const pos = await getCoordinates({ requireAccurate: true });
       const { latitude, longitude, accuracy } = pos.coords;
 
       const visitData = {
@@ -515,7 +559,9 @@ export default function FODashboard({ user, onLogout }) {
         battery: telemetry.battery,
         network: telemetry.network,
         accuracy,
-        device: navigator.userAgent
+        device: navigator.userAgent,
+        gpsTimestamp: pos.timestamp || Date.now(),
+        webdriver: navigator.webdriver || false
       };
 
       if (online) {
@@ -652,15 +698,6 @@ export default function FODashboard({ user, onLogout }) {
               <span>Daily Shift Attendance</span>
             </h3>
             <div className="flex items-center space-x-2">
-              <label className="flex items-center space-x-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-350 border border-slate-750 rounded text-[9px] font-semibold cursor-pointer transition select-none">
-                <input 
-                  type="checkbox" 
-                  checked={simulatedMode}
-                  onChange={(e) => handleSimulatedModeChange(e.target.checked)}
-                  className="rounded text-sky-600 focus:ring-0 w-3 h-3 cursor-pointer mr-1"
-                />
-                <span>Simulate GPS</span>
-              </label>
               {attendance && (
                 <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${attendance.status === 'Present' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : attendance.status === 'Late' ? 'bg-amber-500/10 text-amber-400 border-amber-500/25' : 'bg-sky-500/10 text-sky-400 border-sky-500/25'}`}>
                   {attendance.status}
@@ -674,7 +711,17 @@ export default function FODashboard({ user, onLogout }) {
               <p className="text-xs text-slate-400 text-center">Log your arrival to begin receiving location updates and recording consumer visits.</p>
               
               <div className="space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
-                <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Detected Location (Read-only)</span>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Detected Location (Read-only)</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                    telemetry.accuracy ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                    'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    Accuracy: {telemetry.accuracy ? `±${Math.round(telemetry.accuracy)}m` : 'Calculating...'}
+                  </span>
+                </div>
                 <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
                   <span>📍 {detectedAddress}</span>
                   <button 
@@ -716,7 +763,17 @@ export default function FODashboard({ user, onLogout }) {
               </div>
 
               <div className="text-left space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
-                <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Current Detected Location (Read-only)</span>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Current Detected Location (Read-only)</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                    telemetry.accuracy ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                    'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    Accuracy: {telemetry.accuracy ? `±${Math.round(telemetry.accuracy)}m` : 'Calculating...'}
+                  </span>
+                </div>
                 <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
                   <span>📍 {detectedAddress}</span>
                   <button 

@@ -187,8 +187,21 @@ export default function App() {
     );
   }
 
+  const getDynamicBasename = () => {
+    const pathname = window.location.pathname;
+    const knownRoutes = ['/login', '/register', '/fo-dashboard', '/supervisor-dashboard', '/rm-dashboard', '/audit-logs'];
+    for (const route of knownRoutes) {
+      if (pathname.includes(route)) {
+        const idx = pathname.indexOf(route);
+        return pathname.substring(0, idx) || '/';
+      }
+    }
+    const base = import.meta.env.BASE_URL;
+    return base && base !== '/' ? base : '/';
+  };
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={getDynamicBasename()}>
       <SessionMonitor user={user} onLogout={handleLogout}>
         <Routes>
           {/* Public Routes */}

@@ -24,7 +24,9 @@ const VisitSchema = new mongoose.Schema(
     network: { type: String },
     accuracy: { type: Number },
     device: { type: String },
-    browser: { type: String }
+    browser: { type: String },
+    isSuspicious: { type: Boolean, default: false },
+    suspiciousReason: { type: String, default: "" }
   },
   { timestamps: true }
 );

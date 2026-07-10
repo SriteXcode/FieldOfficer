@@ -91,18 +91,34 @@ const clientDistPath = process.env.CLIENT_DIST_DIR
   : path.resolve(__dirname, "../client/dist");
 const clientIndexHtml = path.join(clientDistPath, "index.html");
 
-// Middleware to rewrite asset URLs from nested sub-directories or custom path prefixes (e.g. /rosefoundation/assets/...)
+// Middleware to rewrite asset URLs from nested sub-directories or custom path prefixes dynamically.
+// It searches for the existence of physical static files under the client distribution directory.
 app.use((req, res, next) => {
-  if (
-    req.url.includes("/assets/") ||
-    req.url.includes("/favicon.ico") ||
-    req.url.includes("/manifest.json") ||
-    req.url.includes("/sw.js") ||
-    req.url.includes("/register-sw.js")
-  ) {
-    const parts = req.url.split(/(assets\/|favicon\.ico|manifest\.json|sw\.js|register-sw\.js)/);
-    if (parts.length > 1) {
-      req.url = "/" + parts.slice(1).join("");
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return next();
+  }
+
+  // Skip API routes
+  if (req.url.startsWith("/api/")) {
+    return next();
+  }
+
+  const parsedPath = req.path;
+  const segments = parsedPath.split("/").filter(Boolean);
+
+  // Progressive segment stripping from left to right to check for valid static file matches
+  for (let i = 0; i < segments.length; i++) {
+    const trialSubpath = segments.slice(i).join("/");
+    const absoluteTrialPath = path.join(clientDistPath, trialSubpath);
+
+    try {
+      if (fs.existsSync(absoluteTrialPath) && fs.statSync(absoluteTrialPath).isFile()) {
+        const queryStr = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        req.url = "/" + trialSubpath + queryStr;
+        break;
+      }
+    } catch (e) {
+      // Ignore errors (e.g., permissions or invalid paths)
     }
   }
   next();

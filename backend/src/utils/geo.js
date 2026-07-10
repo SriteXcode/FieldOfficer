@@ -15,7 +15,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Number(d.toFixed(2));
 }
 
-// Check if speed between two consecutive pings exceeds reasonable thresholds (e.g. 150 km/h)
+// Check if speed between two consecutive pings exceeds reasonable thresholds (e.g. 100 km/h)
 // to flag mock location wrappers/jumps
 function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
   const dist = calculateDistance(lat1, lon1, lat2, lon2);
@@ -24,8 +24,100 @@ function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
   if (timeDiffHrs === 0) return false;
   
   const speed = dist / timeDiffHrs; // km/h
-  // If speed is greater than 150km/h and distance is substantial (> 1km), flag it
-  return speed > 150 && dist > 1.0;
+  // If speed is greater than 100km/h and distance is substantial (> 0.5km), flag it
+  return speed > 100 && dist > 0.5;
+}
+
+// Verify location ping for GPS spoofing/developer options simulators
+async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimestamp, webdriver, ip, prevPings }) {
+  let isSuspicious = false;
+  const reasons = [];
+
+  // 1. Webdriver/Automation check
+  if (webdriver === true || webdriver === "true") {
+    isSuspicious = true;
+    reasons.push("Automated browser/agent detected");
+  }
+
+  // 2. Unrealistic Speed Check
+  if (prevPings && prevPings.length > 0) {
+    const prevPing = prevPings[0];
+    const speedUnrealistic = isSpeedUnrealistic(
+      prevPing.latitude,
+      prevPing.longitude,
+      prevPing.timestamp || prevPing.time, // support both models
+      latitude,
+      longitude,
+      new Date()
+    );
+    if (speedUnrealistic) {
+      isSuspicious = true;
+      reasons.push("Unrealistic speed/teleportation jump");
+    }
+  }
+
+  // 3. Zero GPS Drift Check (Android Developer Options Mock GPS / Chrome sensor simulator)
+  // Genuine GPS signals always exhibit minor fluctuations (drift) even when stationary.
+  // Exactly identical decimal values over 3 consecutive updates indicate a static simulator.
+  if (prevPings && prevPings.length >= 2) {
+    const p1 = prevPings[0];
+    const p2 = prevPings[1];
+    if (
+      p1.latitude === latitude &&
+      p1.longitude === longitude &&
+      p2.latitude === latitude &&
+      p2.longitude === longitude
+    ) {
+      isSuspicious = true;
+      reasons.push("Constant zero GPS drift (static mock location provider)");
+    }
+  }
+
+  // 4. Stale/Injected GPS Hardware Timestamp Check
+  if (gpsTimestamp) {
+    const gpsTime = new Date(Number(gpsTimestamp)).getTime();
+    const serverTime = Date.now();
+    // If the hardware GPS time differs from the server clock by > 45s, it is stale/mocked.
+    if (Number.isFinite(gpsTime) && Math.abs(serverTime - gpsTime) > 45000) {
+      isSuspicious = true;
+      reasons.push("Stale/manipulated GPS hardware timestamp");
+    }
+  }
+
+  // 5. IP vs GPS Location Cross-Verification (Geo-IP validation)
+  if (ip) {
+    const cleanIp = ip.replace("::ffff:", "");
+    const isPrivate =
+      cleanIp === "::1" ||
+      cleanIp === "127.0.0.1" ||
+      cleanIp.startsWith("192.168.") ||
+      cleanIp.startsWith("10.") ||
+      cleanIp.startsWith("172.");
+
+    if (!isPrivate) {
+      try {
+        const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,lat,lon`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.status === "success" && data.lat !== undefined && data.lon !== undefined) {
+            const dist = calculateDistance(data.lat, data.lon, latitude, longitude);
+            // If reported GPS coordinates mismatch IP provider center by > 200 km, flag it.
+            if (dist > 200) {
+              isSuspicious = true;
+              reasons.push(`Network IP and GPS mismatch (> ${Math.round(dist)}km)`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Geo-IP verification failed:", err);
+      }
+    }
+  }
+
+  return {
+    isSuspicious,
+    suspiciousReason: reasons.join("; ")
+  };
 }
 
 async function reverseGeocode(lat, lon) {
@@ -74,5 +166,6 @@ async function reverseGeocode(lat, lon) {
 module.exports = {
   calculateDistance,
   isSpeedUnrealistic,
+  verifyLocationPayload,
   reverseGeocode
 };
