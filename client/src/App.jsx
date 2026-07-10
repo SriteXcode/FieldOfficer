@@ -189,7 +189,7 @@ export default function App() {
 
   const getDynamicBasename = () => {
     const pathname = window.location.pathname;
-    const knownRoutes = ['/login', '/register', '/fo-dashboard', '/supervisor-dashboard', '/rm-dashboard', '/audit-logs'];
+    const knownRoutes = ['/login', '/register', '/fo/dashboard', '/supervisor/dashboard', '/rm/dashboard', '/audit-logs'];
     for (const route of knownRoutes) {
       if (pathname.includes(route)) {
         const idx = pathname.indexOf(route);
