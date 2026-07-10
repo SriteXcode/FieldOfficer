@@ -148,7 +148,11 @@ async function logVisit(req, res) {
       req
     });
 
-    return res.status(201).json({ message: "Visit logged successfully", visit: result });
+    return res.status(201).json({ 
+      message: "Visit logged successfully", 
+      visit: result,
+      isSuspicious
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

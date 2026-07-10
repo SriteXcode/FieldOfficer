@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
   LogOut, MapPin, CheckCircle, Clock, Send, Camera, 
-  Wifi, WifiOff, CloudLightning, ShieldCheck, Battery, RefreshCw, Compass
+  Wifi, WifiOff, CloudLightning, ShieldCheck, Battery, RefreshCw, Compass, AlertOctagon
 } from 'lucide-react';
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
@@ -27,6 +27,7 @@ export default function FODashboard({ user, onLogout }) {
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
   const [detectedAddress, setDetectedAddress] = useState('Detecting location...');
   const [gpsError, setGpsError] = useState('');
+  const [fakeGpsWarning, setFakeGpsWarning] = useState(false);
 
   const pingLocation = async (lat, lng, acc) => {
     if (acc > MAX_ACCEPTABLE_ACCURACY_METERS) {
@@ -47,7 +48,10 @@ export default function FODashboard({ user, onLogout }) {
 
     if (navigator.onLine) {
       try {
-        await axios.post('/api/locations', locationPing);
+        const res = await axios.post('/api/locations', locationPing);
+        if (res.data?.isSuspicious) {
+          setFakeGpsWarning(true);
+        }
       } catch (e) {
         await addToQueue('locations', locationPing);
         updateQueueSize();
@@ -168,13 +172,16 @@ export default function FODashboard({ user, onLogout }) {
   const fetchTodayAttendance = async () => {
     setLoading(true);
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const res = await axios.get(`/api/attendance?date=${todayStr}`);
+      const res = await axios.get('/api/attendance?date=today');
       if (res.data && res.data.attendance && res.data.attendance.length > 0) {
-        setAttendance(res.data.attendance[0]);
+        const todayAtt = res.data.attendance[0];
+        setAttendance(todayAtt);
         // If checked in but not checked out, start watching location
-        if (res.data.attendance[0].checkIn && !res.data.attendance[0].checkOut) {
+        if (todayAtt.checkIn && !todayAtt.checkOut) {
           startLiveTracking();
+        }
+        if (todayAtt.checkIn?.isSuspicious || todayAtt.checkOut?.isSuspicious) {
+          setFakeGpsWarning(true);
         }
       }
     } catch (e) {
@@ -224,7 +231,10 @@ export default function FODashboard({ user, onLogout }) {
       if (att.length > 0) {
         setSyncProgress('Uploading Attendance...');
         for (const item of att) {
-          await axios.post('/api/attendance', item);
+          const res = await axios.post('/api/attendance', item);
+          if (res.data?.isSuspicious || res.data?.attendance?.checkIn?.isSuspicious || res.data?.attendance?.checkOut?.isSuspicious) {
+            setFakeGpsWarning(true);
+          }
           await removeFromQueue('attendance', item.id);
         }
       }
@@ -233,7 +243,10 @@ export default function FODashboard({ user, onLogout }) {
       if (loc.length > 0) {
         setSyncProgress('Uploading Route...');
         for (const item of loc) {
-          await axios.post('/api/locations', item);
+          const res = await axios.post('/api/locations', item);
+          if (res.data?.isSuspicious) {
+            setFakeGpsWarning(true);
+          }
           await removeFromQueue('locations', item.id);
         }
       }
@@ -242,7 +255,10 @@ export default function FODashboard({ user, onLogout }) {
       if (visits.length > 0) {
         setSyncProgress('Uploading Visits...');
         for (const item of visits) {
-          await axios.post('/api/visits', item);
+          const res = await axios.post('/api/visits', item);
+          if (res.data?.isSuspicious || res.data?.visit?.isSuspicious) {
+            setFakeGpsWarning(true);
+          }
           await removeFromQueue('visits', item.id);
         }
       }
@@ -481,6 +497,9 @@ export default function FODashboard({ user, onLogout }) {
         try {
           const res = await axios.post('/api/attendance', payload);
           setAttendance(res.data.attendance);
+          if (res.data?.isSuspicious || res.data?.attendance?.checkIn?.isSuspicious || res.data?.attendance?.checkOut?.isSuspicious) {
+            setFakeGpsWarning(true);
+          }
           setAlert({ type: 'success', message: `${type === 'checkIn' ? 'Check-in' : 'Check-out'} completed successfully.` });
           
           if (type === 'checkIn') {
@@ -566,7 +585,10 @@ export default function FODashboard({ user, onLogout }) {
 
       if (online) {
         try {
-          await axios.post('/api/visits', visitData);
+          const res = await axios.post('/api/visits', visitData);
+          if (res.data?.isSuspicious || res.data?.visit?.isSuspicious) {
+            setFakeGpsWarning(true);
+          }
           setAlert({ type: 'success', message: `Visit for '${consumerName}' recorded successfully!` });
           resetForm();
         } catch (error) {
@@ -686,6 +708,27 @@ export default function FODashboard({ user, onLogout }) {
             <div className="space-y-1">
               <span className="font-semibold block">GPS Status Banner</span>
               <span className="font-medium text-rose-300">{gpsError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Fake GPS Detection Warning Banner */}
+        {fakeGpsWarning && (
+          <div className="relative overflow-hidden flex items-start space-x-3.5 p-4 rounded-2xl border border-rose-500/35 bg-gradient-to-r from-rose-950/70 to-red-950/50 text-rose-200 text-xs shadow-lg shadow-rose-950/20 transition-all duration-300 hover:border-rose-500/50">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex-shrink-0 p-1.5 bg-rose-500/15 rounded-lg text-rose-400 animate-pulse mt-0.5">
+              <AlertOctagon className="w-5 h-5" />
+            </div>
+            <div className="space-y-1.5 flex-1 z-10">
+              <span className="font-bold text-rose-400 block text-[13px] tracking-wide uppercase">
+                🚨 Security Alert: Fake GPS Detected
+              </span>
+              <p className="font-medium text-rose-300/90 leading-relaxed">
+                The system has detected that your device is running a mock location provider, simulator, or location spoofing application.
+              </p>
+              <p className="font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/40 p-2.5 rounded-lg text-[11px] leading-relaxed">
+                ⚠️ WARNING: Please disable any mock location settings or spoofing apps immediately and use your real GPS. Continuous use of fake GPS will result in your account being permanently blocked.
+              </p>
             </div>
           </div>
         )}

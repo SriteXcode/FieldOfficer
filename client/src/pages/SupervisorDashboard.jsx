@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import { 
   LogOut, Users, MapPin, CheckCircle, Navigation, PlayCircle, Clock, 
   Search, ShieldAlert, Sparkles, Send, Settings, BookOpen, Download, AlertTriangle, 
-  MapIcon, Award, Eye, Calendar
+  MapIcon, Award, Eye, Calendar, X, Activity
 } from 'lucide-react';
 
 import MapComponent from '../components/MapComponent';
@@ -26,6 +26,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const [selectedState, setSelectedState] = useState('All');
   const [selectedFoHistory, setSelectedFoHistory] = useState([]); // List of locations
   const [selectedFoVisits, setSelectedFoVisits] = useState([]); // List of visits
+  const [selectedFoAttendance, setSelectedFoAttendance] = useState(null); // Attendance record
+  const [isFoModalOpen, setIsFoModalOpen] = useState(false); // Modal state
   const [replayCoord, setReplayCoord] = useState(null); // Active coordinate for replay
 
   // Loading states
@@ -260,6 +262,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
       // 3. Fetch attendance checkIn/out for that date
       const attRes = await axios.get(`/api/attendance?userId=${selectedFO.userId}&date=${selectedDate}`);
       const dayAtt = attRes.data.attendance && attRes.data.attendance.length > 0 ? attRes.data.attendance[0] : null;
+      setSelectedFoAttendance(dayAtt);
 
       // 4. Construct map markers
       const markers = [];
@@ -540,8 +543,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <div
                     key={fo.userId}
                     onClick={() => {
-                      if (isActive) setSelectedFO(null);
-                      else setSelectedFO(fo);
+                      setSelectedFO(fo);
+                      setIsFoModalOpen(true);
                     }}
                     className={`p-3.5 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-600/10 border-b border-sky-500 shadow-inner' : 'bg-slate-900/35 border-slate-850 hover:bg-slate-850'}`}
                   >
@@ -634,14 +637,6 @@ export default function SupervisorDashboard({ user, onLogout }) {
         {/* Selected Field Officer detailed breakdown (Replay + Visits) */}
         {selectedFO && (
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn relative">
-            {historyLoading && (
-              <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-30 flex items-center justify-center rounded-2xl">
-                <div className="text-center space-y-2">
-                  <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-xs text-slate-400 font-medium">Fetching officer history details...</p>
-                </div>
-              </div>
-            )}
             
             {/* Left: Route Replay player */}
             <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
@@ -906,6 +901,237 @@ export default function SupervisorDashboard({ user, onLogout }) {
             </table>
           </div>
         </section>
+
+        {/* Field Officer Profile & Route Details Modal */}
+        {isFoModalOpen && selectedFO && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
+              {/* Header */}
+              <div className="flex justify-between items-center px-6 py-4.5 bg-slate-900 border-b border-slate-800">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-sky-600/10 border border-sky-500/25 rounded-2xl flex items-center justify-center text-sky-400">
+                    <Activity className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                      <span>{selectedFO.name}</span>
+                      <span className="text-[10px] text-slate-400 bg-slate-850 px-2 py-0.5 rounded font-mono border border-slate-800">@{selectedFO.username}</span>
+                    </h3>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                      <span className="text-[11px] text-slate-400 font-semibold">Report Date:</span>
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="bg-slate-850 border border-slate-800 text-slate-200 text-[11px] rounded-lg px-2.5 py-1 outline-none focus:border-sky-500 transition font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsFoModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-200 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl transition duration-150"
+                  title="Close popup"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-grow">
+                {/* 1. Map container showing highlighted route stop */}
+                <div className="space-y-3 text-left">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                    <MapIcon className="w-4 h-4 text-sky-400" />
+                    <span>Highlighted Route Map & Replay</span>
+                  </span>
+                  <div className="w-full h-[240px] rounded-2xl overflow-hidden border border-slate-800 relative bg-slate-950">
+                    <MapComponent 
+                      markers={mapMarkers} 
+                      polyline={mapPolyline} 
+                      replayMarker={replayCoord}
+                      fitBoundsTrigger={mapBoundsTrigger}
+                    />
+                  </div>
+
+                  {/* Route Replay Player */}
+                  <RouteReplay 
+                    path={selectedFoHistory} 
+                    stops={selectedFoVisits.map((v, i) => ({ index: i + 1, title: v.consumerName, lat: v.location.latitude, lng: v.location.longitude }))}
+                    onPositionChange={(coord) => setReplayCoord({ lat: coord.latitude, lng: coord.longitude })}
+                  />
+                </div>
+
+                {/* 2. Route Path History Timeline (Stops & Times) */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                    <Clock className="w-4 h-4 text-sky-400" />
+                    <span>Route Stop History & Timestamps</span>
+                  </span>
+                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto bg-slate-950/40 p-3.5 rounded-2xl border border-slate-850">
+                    {selectedFoHistory.map((pt, i) => (
+                      <div key={i} className="flex justify-between text-[11px] text-slate-300 font-mono py-1 border-b border-slate-900/60 last:border-0">
+                        <span className="flex items-center gap-1.5 text-slate-400">
+                          <span className="w-2 h-2 rounded-full bg-sky-500/50" />
+                          <span>Lat: {pt.latitude.toFixed(5)}, Lng: {pt.longitude.toFixed(5)}</span>
+                        </span>
+                        <span className="text-sky-400 font-semibold bg-sky-950/30 px-1.5 py-0.2 rounded border border-sky-900/30">
+                          {new Date(pt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                    {selectedFoHistory.length === 0 && (
+                      <div className="text-slate-500 text-xs italic py-4 text-center">No location signals recorded for this date.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Logged Consumer Visits */}
+                <div className="space-y-3.5 text-left">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                    <Users className="w-4 h-4 text-sky-400" />
+                    <span>Logged Consumer Visits Timeline ({selectedFoVisits.length})</span>
+                  </span>
+                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                    {selectedFoVisits.map((v, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => {
+                          setReplayCoord({ lat: v.location.latitude, lng: v.location.longitude });
+                        }}
+                        className="flex items-start space-x-3.5 bg-slate-950/30 p-3.5 rounded-2xl border border-slate-800 hover:border-sky-500/50 hover:bg-slate-900/40 cursor-pointer transition relative"
+                      >
+                        <span className="w-5.5 h-5.5 bg-sky-600/15 border border-sky-500/20 text-sky-400 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-md flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="flex-grow space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-[12px] font-bold text-slate-200">{v.consumerName}</h4>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
+                              🕒 {new Date(v.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-405 leading-relaxed">
+                            <span className="text-slate-500 font-semibold">Address:</span> {v.consumerAddress}
+                          </p>
+                          <p className="text-[11px] text-sky-400 leading-relaxed">
+                            <span className="text-slate-500 font-semibold">GPS:</span> {v.detectedAddress}
+                          </p>
+                          {v.comment && (
+                            <p className="text-[10px] italic text-slate-350 bg-slate-900/60 p-2.5 border border-slate-800 rounded-xl mt-2 leading-relaxed">
+                              "{v.comment}"
+                            </p>
+                          )}
+                        </div>
+                        {v.photo && (
+                          <div className="w-16 h-16 rounded-xl border border-slate-800 overflow-hidden shadow flex-shrink-0 self-center">
+                            <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {selectedFoVisits.length === 0 && (
+                      <div className="text-slate-500 text-xs italic py-8 text-center bg-slate-950/15 rounded-2xl border border-slate-900">
+                        No visits recorded on this date.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Check-in & Check-out Timings */}
+                <div className="space-y-3 text-left">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                    <Clock className="w-4 h-4 text-sky-400" />
+                    <span>Check-In & Check-Out Detail</span>
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div 
+                      onClick={() => {
+                        if (selectedFoAttendance?.checkIn) {
+                          setReplayCoord({ lat: selectedFoAttendance.checkIn.latitude, lng: selectedFoAttendance.checkIn.longitude });
+                        }
+                      }}
+                      className={`bg-slate-950/30 p-3.5 rounded-2xl border border-slate-850 space-y-2 text-left transition ${selectedFoAttendance?.checkIn ? 'cursor-pointer hover:border-sky-500/50 hover:bg-slate-900/40' : ''}`}
+                    >
+                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-In</span>
+                      {selectedFoAttendance?.checkIn ? (
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-emerald-400 block">
+                            🕒 {new Date(selectedFoAttendance.checkIn.time).toLocaleTimeString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkIn.address}>
+                            📍 {selectedFoAttendance.checkIn.address}
+                          </span>
+                          <span className="text-[9px] text-slate-500 block">
+                            🔋 {selectedFoAttendance.checkIn.battery}% • 📡 {selectedFoAttendance.checkIn.network}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic block py-2">No Check-in logged</span>
+                      )}
+                    </div>
+
+                    <div 
+                      onClick={() => {
+                        if (selectedFoAttendance?.checkOut) {
+                          setReplayCoord({ lat: selectedFoAttendance.checkOut.latitude, lng: selectedFoAttendance.checkOut.longitude });
+                        }
+                      }}
+                      className={`bg-slate-950/30 p-3.5 rounded-2xl border border-slate-850 space-y-2 text-left transition ${selectedFoAttendance?.checkOut ? 'cursor-pointer hover:border-sky-500/50 hover:bg-slate-900/40' : ''}`}
+                    >
+                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-Out</span>
+                      {selectedFoAttendance?.checkOut ? (
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-rose-400 block">
+                            🕒 {new Date(selectedFoAttendance.checkOut.time).toLocaleTimeString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkOut.address}>
+                            📍 {selectedFoAttendance.checkOut.address}
+                          </span>
+                          <span className="text-[9px] text-slate-500 block">
+                            🔋 {selectedFoAttendance.checkOut.battery}% • 📡 {selectedFoAttendance.checkOut.network}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic block py-2">No Check-out logged</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Warnings for mock GPS */}
+                <div className="space-y-2.5 text-left">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                    <ShieldAlert className="w-4 h-4 text-rose-500" />
+                    <span>Mock GPS Security Analysis</span>
+                  </span>
+                  {selectedFO.isSuspicious ? (
+                    <div className="flex items-start space-x-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs">
+                      <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400 animate-pulse" />
+                      <div className="space-y-1.5">
+                        <span className="font-bold text-rose-400 block text-[13px]">🚨 Security Violations Flagged</span>
+                        <span className="font-semibold block leading-relaxed text-rose-300">
+                          {selectedFO.suspiciousReason || 'Multiple geolocation anomalies (mock GPS provider, constant zero drift, or stale hardware timestamp) were flagged for this officer.'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start space-x-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
+                      <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-400" />
+                      <div className="space-y-1.5">
+                        <span className="font-bold text-emerald-400 block text-[13px]">Location Signals Secure</span>
+                        <span className="font-medium text-emerald-400/90 block leading-relaxed">
+                          No spoofing patterns, fake location providers, automated browser agents, or IP-mismatch anomalies detected.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </main>
     </div>

@@ -300,7 +300,11 @@ async function checkInOrOut(req, res) {
       });
     }
 
-    return res.status(200).json({ message: `${type === "checkIn" ? "Check-in" : "Check-out"} successful`, attendance: result });
+    return res.status(200).json({ 
+      message: `${type === "checkIn" ? "Check-in" : "Check-out"} successful`, 
+      attendance: result,
+      isSuspicious
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -310,6 +314,11 @@ async function getAttendance(req, res) {
   try {
     const { date, userId } = req.query;
     let queryUserId = req.user.id;
+
+    let resolvedDate = date;
+    if (date === "today") {
+      resolvedDate = new Date().toISOString().split("T")[0];
+    }
 
     if (req.user.role === "Field Officer") {
       queryUserId = req.user.id;
@@ -345,13 +354,13 @@ async function getAttendance(req, res) {
         try {
           await connectToDatabase();
           const query = { userId: { $in: fosList } };
-          if (date) query.date = date;
+          if (resolvedDate) query.date = resolvedDate;
           attendanceRecords = await Attendance.find(query).populate("userId", "name username").lean();
         } catch (e) {
           const mockAttendance = getMockData("Attendance");
           const mockUsers = getMockData("User");
           attendanceRecords = mockAttendance
-            .filter(a => fosList.includes(a.userId) && (!date || a.date === date))
+            .filter(a => fosList.includes(a.userId) && (!resolvedDate || a.date === resolvedDate))
             .map(a => {
               const u = mockUsers.find(user => (user._id || user.id) === a.userId);
               return {
@@ -368,12 +377,12 @@ async function getAttendance(req, res) {
     try {
       await connectToDatabase();
       const query = { userId: queryUserId };
-      if (date) query.date = date;
+      if (resolvedDate) query.date = resolvedDate;
       records = await Attendance.find(query).sort({ date: -1 }).lean();
     } catch (e) {
       const mockAttendance = getMockData("Attendance");
       records = mockAttendance
-        .filter(a => a.userId === queryUserId && (!date || a.date === date))
+        .filter(a => a.userId === queryUserId && (!resolvedDate || a.date === resolvedDate))
         .sort((a, b) => b.date.localeCompare(a.date));
     }
 
