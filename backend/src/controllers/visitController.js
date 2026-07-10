@@ -4,7 +4,7 @@ const { reverseGeocode } = require("../utils/geo.js");
 const { logAction } = require("../utils/audit.js");
 const { getMockData, saveMockData, connectToDatabase } = require("../config/db.js");
 
-const MAX_ACCEPTABLE_ACCURACY_METERS = 100;
+const MAX_ACCEPTABLE_ACCURACY_METERS = 150;
 
 async function logVisit(req, res) {
   try {

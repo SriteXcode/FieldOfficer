@@ -7,7 +7,7 @@ import {
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
 
-const MAX_ACCEPTABLE_ACCURACY_METERS = 100;
+const MAX_ACCEPTABLE_ACCURACY_METERS = 150;
 const RECENT_COORDS_MAX_AGE_MS = 15000;
 const GPS_LOCK_TIMEOUT_MS = 45000;
 const SINGLE_GPS_ATTEMPT_TIMEOUT_MS = 15000;
