@@ -152,6 +152,47 @@ async function logVisit(req, res) {
       result = newVisit;
     }
 
+    // Save to LiveLocation to keep a continuous location log for fraud detection
+    try {
+      await connectToDatabase();
+      await LiveLocation.create({
+        userId: req.user.id,
+        date: dateStr,
+        latitude,
+        longitude,
+        accuracy,
+        battery,
+        network,
+        device: device || "Unknown Device",
+        address: detectedAddress,
+        timestamp: now,
+        isSuspicious,
+        suspiciousReason
+      });
+    } catch (e) {
+      const mockLocations = getMockData("LiveLocation");
+      const locId = `loc_${Date.now()}`;
+      mockLocations.push({
+        _id: locId,
+        id: locId,
+        userId: req.user.id,
+        date: dateStr,
+        latitude,
+        longitude,
+        accuracy,
+        battery,
+        network,
+        device: device || "Unknown Device",
+        address: detectedAddress,
+        timestamp: now.toISOString(),
+        isSuspicious,
+        suspiciousReason,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      });
+      saveMockData("LiveLocation", mockLocations);
+    }
+
     await logAction({
       userId: req.user.id,
       action: "Visit Added",

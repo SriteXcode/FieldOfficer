@@ -15,18 +15,23 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Number(d.toFixed(2));
 }
 
-// Check if speed between two consecutive pings exceeds reasonable thresholds (e.g. 100 km/h)
-// to flag mock location wrappers/jumps
+// Check if speed between two consecutive pings exceeds reasonable thresholds (e.g. 250 km/h)
+// to flag mock location wrappers/jumps, including instant teleportation jumps.
 function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
   const dist = calculateDistance(lat1, lon1, lat2, lon2);
   const timeDiffMs = Math.abs(new Date(time2) - new Date(time1));
   
-  // Ignore speed check if updates are less than 60 seconds apart to prevent coarse-to-fine GPS settling jumps (e.g. cellular to satellite GPS locks)
-  if (timeDiffMs < 60000) return false;
+  // Ignore speed check if updates are less than 60 seconds apart and the distance is small (<= 2.0 km)
+  // to prevent false positives from cellular-to-satellite GPS settling locks.
+  if (timeDiffMs < 60000 && dist <= 2.0) {
+    return false;
+  }
   
-  const timeDiffHrs = timeDiffMs / (1000 * 60 * 60);
+  const effectiveTimeDiffMs = Math.max(timeDiffMs, 1000); // prevent division by zero or negative time
+  const timeDiffHrs = effectiveTimeDiffMs / (1000 * 60 * 60);
   const speed = dist / timeDiffHrs; // km/h
-  // Flag only extremely fast speeds (>250km/h over substantial distance >1.0km) to avoid false positives for highway/railway users
+  
+  // Flag if speed exceeds 250 km/h and distance is substantial (> 1.0 km)
   return speed > 250 && dist > 1.0;
 }
 
@@ -117,6 +122,25 @@ async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimesta
       } catch (err) {
         console.error("Geo-IP verification failed:", err);
       }
+    }
+  }
+
+  // 6. Static accuracy and zero-drift mock GPS check (accuracy in 1m-3m range with identical values)
+  if (accuracy >= 1 && accuracy <= 3 && prevPings && prevPings.length >= 2) {
+    let allConstant = true;
+    for (const pt of prevPings) {
+      if (
+        pt.latitude !== latitude ||
+        pt.longitude !== longitude ||
+        pt.accuracy !== accuracy
+      ) {
+        allConstant = false;
+        break;
+      }
+    }
+    if (allConstant) {
+      isSuspicious = true;
+      reasons.push("Static GPS precision signature (mock GPS suspected)");
     }
   }
 

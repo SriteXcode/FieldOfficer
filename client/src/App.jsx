@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle, Clock, AlertOctagon } from 'lucide-react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import FODashboard from './pages/FODashboard';
@@ -247,6 +247,57 @@ export default function App() {
     }
   });
   const [loading, setLoading] = useState(false);
+  const [devToolsBlocked, setDevToolsBlocked] = useState(false);
+
+  // Strict DevTools Detection & Blocking Hook
+  useEffect(() => {
+    // 1. Block standard developer shortcut keys and right-click context menu
+    const blockShortcuts = (e) => {
+      if (
+        e.keyCode === 123 || // F12 key
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Ctrl+Shift+I / J / C
+        (e.ctrlKey && e.keyCode === 85) // Ctrl+U (View Source)
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+    const blockContextMenu = (e) => e.preventDefault();
+
+    window.addEventListener('keydown', blockShortcuts);
+    window.addEventListener('contextmenu', blockContextMenu);
+
+    // 2. Active DevTools presence verification
+    const threshold = 160;
+    const check = () => {
+      // Check docked DevTools (looks for significant discrepancies in window dimensions)
+      const widthDev = window.outerWidth - window.innerWidth > threshold;
+      const heightDev = window.outerHeight - window.innerHeight > threshold;
+      
+      // Check for floating/undocked DevTools using code execution delay (debugger triggers timing delay)
+      let timeDev = false;
+      const start = performance.now();
+      debugger; // Pauses execution ONLY if DevTools is open
+      const end = performance.now();
+      if (end - start > 100) {
+        timeDev = true;
+      }
+
+      if (widthDev || heightDev || timeDev) {
+        setDevToolsBlocked(true);
+      } else {
+        setDevToolsBlocked(false);
+      }
+    };
+
+    const interval = setInterval(check, 1000);
+
+    return () => {
+      window.removeEventListener('keydown', blockShortcuts);
+      window.removeEventListener('contextmenu', blockContextMenu);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Set up Axios response interceptor for handling 401 session expirations
   useEffect(() => {
@@ -337,6 +388,33 @@ export default function App() {
     const base = import.meta.env.BASE_URL;
     return base && base !== '/' ? base : '/';
   };
+
+  if (devToolsBlocked) {
+    return (
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl text-slate-100 p-6 select-none">
+        <div className="max-w-md w-full text-center space-y-6 bg-slate-900/90 border border-red-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.2)] relative overflow-hidden glass-panel">
+          <div className="absolute -top-12 -right-12 w-36 h-36 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="inline-flex p-4 bg-red-500/15 text-red-500 rounded-full animate-pulse">
+            <AlertOctagon className="w-12 h-12" />
+          </div>
+
+          <h2 className="text-2xl font-black tracking-wide text-red-500 font-sans uppercase">
+            Access Denied
+          </h2>
+
+          <p className="text-sm text-slate-350 leading-relaxed font-medium">
+            Developer tools (inspection console, debugging mode) are active in your browser. To protect the integrity of geolocation tracking logs, access to this application is strictly blocked.
+          </p>
+
+          <div className="bg-red-950/40 border border-red-800/40 p-4 rounded-2xl text-[11px] text-red-400 font-semibold leading-relaxed">
+            ⚠️ ACTION REQUIRED: Please close your browser Developer Tools (or disable remote debugging) and refresh the page to access the application.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter basename={getDynamicBasename()}>

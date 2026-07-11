@@ -75,6 +75,13 @@ export default function FODashboard({ user, onLogout }) {
   const refreshDetectedLocation = async () => {
     setDetectedAddress('Detecting location...');
     try {
+      const isMockDetected = await verifyGpsHardware();
+      if (isMockDetected) {
+        setFakeGpsWarning(true);
+        setDetectedAddress('Suspicious location provider detected.');
+        return;
+      }
+      
       const pos = await getCoordinates();
       const { latitude, longitude, accuracy } = pos.coords;
       const res = await axios.get(`/api/geocode?lat=${latitude}&lon=${longitude}`);
@@ -111,19 +118,24 @@ export default function FODashboard({ user, onLogout }) {
   const syncIntervalRef = useRef(null);
   const latestCoordsRef = useRef(null);
 
-  // Check private / incognito browsing mode on mount
+  // Check private / incognito browsing mode and mock GPS on mount
   useEffect(() => {
-    const checkPrivateMode = async () => {
+    const checkSecurityOnMount = async () => {
       try {
-        const result = await detectIncognito();
-        if (result && result.isPrivate) {
+        const incognitoResult = await detectIncognito();
+        const isMockDetected = await verifyGpsHardware();
+        
+        if ((incognitoResult && incognitoResult.isPrivate) || isMockDetected || navigator.webdriver) {
           setFakeGpsWarning(true);
+        } else {
+          // If all client-side checks are clean on reload, clear the warning
+          setFakeGpsWarning(false);
         }
       } catch (err) {
-        console.warn("Incognito mode check failed:", err);
+        console.warn("Security check on mount failed:", err);
       }
     };
-    checkPrivateMode();
+    checkSecurityOnMount();
   }, []);
 
   // Monitor network status
@@ -303,8 +315,6 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/attendance', item);
           if (res.data?.isSuspicious || res.data?.attendance?.checkIn?.isSuspicious || res.data?.attendance?.checkOut?.isSuspicious) {
             setFakeGpsWarning(true);
-          } else {
-            setFakeGpsWarning(false);
           }
           await removeFromQueue('attendance', item.id);
         }
@@ -317,8 +327,6 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/locations', item);
           if (res.data?.isSuspicious) {
             setFakeGpsWarning(true);
-          } else {
-            setFakeGpsWarning(false);
           }
           await removeFromQueue('locations', item.id);
         }
@@ -331,8 +339,6 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/visits', item);
           if (res.data?.isSuspicious || res.data?.visit?.isSuspicious) {
             setFakeGpsWarning(true);
-          } else {
-            setFakeGpsWarning(false);
           }
           await removeFromQueue('visits', item.id);
         }
@@ -353,6 +359,60 @@ export default function FODashboard({ user, onLogout }) {
         updateQueueSize();
       }, 2000);
     }
+  };
+
+  // Helper to verify GPS hardware integrity by running 5 rapid queries
+  // and detecting constant coordinates + constant accuracy in the range 1m-3m (typical mock GPS profile).
+  const verifyGpsHardware = async () => {
+    if (!navigator.geolocation) return false;
+    
+    const pings = [];
+    const count = 5;
+    
+    try {
+      for (let i = 0; i < count; i++) {
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve, 
+            reject, 
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+          );
+        });
+        pings.push(pos.coords);
+      }
+    } catch (err) {
+      console.warn("Rapid GPS validation check failed:", err);
+      return false;
+    }
+    
+    const first = pings[0];
+    
+    // Check if accuracy is in the suspicious mock GPS range (+-1m to 3m)
+    if (first.accuracy >= 1 && first.accuracy <= 3) {
+      let allConstant = true;
+      for (let i = 1; i < pings.length; i++) {
+        const p = pings[i];
+        if (
+          p.latitude !== first.latitude ||
+          p.longitude !== first.longitude ||
+          p.accuracy !== first.accuracy
+        ) {
+          allConstant = false;
+          break;
+        }
+      }
+      
+      if (allConstant) {
+        console.warn("Mock GPS detected by static precision signature (1m-3m accuracy with zero drift).");
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   // Geolocation API fetch coordinates wrapper. Critical actions require <=100m accuracy.
@@ -552,6 +612,13 @@ export default function FODashboard({ user, onLogout }) {
     setAlert({ type: '', message: '' });
 
     try {
+      const isMockDetected = await verifyGpsHardware();
+      if (isMockDetected) {
+        setFakeGpsWarning(true);
+        setGpsLoading(false);
+        return;
+      }
+
       const pos = await getCoordinates({ requireAccurate: true });
       const { latitude, longitude, accuracy } = pos.coords;
       
@@ -641,6 +708,13 @@ export default function FODashboard({ user, onLogout }) {
     setAlert({ type: '', message: '' });
 
     try {
+      const isMockDetected = await verifyGpsHardware();
+      if (isMockDetected) {
+        setFakeGpsWarning(true);
+        setSubmittingVisit(false);
+        return;
+      }
+
       const pos = await getCoordinates({ requireAccurate: true });
       const { latitude, longitude, accuracy } = pos.coords;
 
