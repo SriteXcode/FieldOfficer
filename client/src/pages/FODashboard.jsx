@@ -138,6 +138,33 @@ export default function FODashboard({ user, onLogout }) {
     checkSecurityOnMount();
   }, []);
 
+  // Track continuous suspicious accuracy (exactly 1m or -1m) for 20 minutes (with localStorage persistence to survive reloads)
+  useEffect(() => {
+    const checkNegativeAccuracy = () => {
+      const isSuspiciousAccuracy = telemetry.accuracy === -1 || telemetry.accuracy === 1;
+      
+      if (isSuspiciousAccuracy) {
+        let startTimeStr = localStorage.getItem('negAccuracyStart');
+        if (!startTimeStr) {
+          startTimeStr = Date.now().toString();
+          localStorage.setItem('negAccuracyStart', startTimeStr);
+        } else {
+          const elapsed = Date.now() - parseInt(startTimeStr, 10);
+          if (elapsed >= 20 * 60 * 1000) {
+            setFakeGpsWarning(true);
+          }
+        }
+      } else {
+        localStorage.removeItem('negAccuracyStart');
+      }
+    };
+
+    checkNegativeAccuracy();
+    const interval = setInterval(checkNegativeAccuracy, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [telemetry.accuracy]);
+
   // Monitor network status
   useEffect(() => {
     const handleOnline = () => {
@@ -581,6 +608,18 @@ export default function FODashboard({ user, onLogout }) {
         setCurrentCoords({ lat: latitude, lng: longitude });
         setTelemetry(t => ({ ...t, accuracy }));
         setGpsError(''); // clear any errors
+
+        // Check if we just recovered from a continuous suspicious accuracy block
+        const startTimeStr = localStorage.getItem('negAccuracyStart');
+        const isSuspiciousAccuracy = accuracy === -1 || accuracy === 1;
+        if (startTimeStr && !isSuspiciousAccuracy && accuracy > 1) {
+          const elapsed = Date.now() - parseInt(startTimeStr, 10);
+          localStorage.removeItem('negAccuracyStart');
+          if (elapsed >= 20 * 60 * 1000) {
+            // Trigger a location ping immediately to verify the new coordinates and unlock the app
+            pingLocation(latitude, longitude, accuracy);
+          }
+        }
       },
       (err) => {
         console.error("GPS Watch failed:", err);
@@ -593,6 +632,15 @@ export default function FODashboard({ user, onLogout }) {
           errMsg = "GPS request timed out. Trying again to acquire satellite lock...";
         }
         setGpsError(errMsg);
+
+        // Update telemetry and latest coords to flag negative accuracy
+        setTelemetry(t => ({ ...t, accuracy: -1 }));
+        if (latestCoordsRef.current) {
+          latestCoordsRef.current.accuracy = -1;
+          latestCoordsRef.current.timestamp = Date.now();
+        } else {
+          latestCoordsRef.current = { latitude: 0, longitude: 0, accuracy: -1, timestamp: Date.now() };
+        }
       },
       options
     );
@@ -902,14 +950,16 @@ export default function FODashboard({ user, onLogout }) {
                 </div>
               )}
 
-              <div className="flex gap-4 w-full">
-                <a
-                  href="intent:#Intent;action=android.settings.APPLICATION_DEVELOPMENT_SETTINGS;S.browser_fallback_url=https://www.google.com/search?q=how+to+disable+developer+options+android;end"
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-600 to-red-650 hover:from-rose-500 hover:to-red-600 border border-rose-500/30 text-white rounded-xl text-[12px] font-bold shadow-lg shadow-rose-900/20 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <Settings className="w-4 h-4 animate-spin" style={{ animationDuration: '5s' }} />
-                  Open Developer Settings
-                </a>
+              <div className="text-left bg-slate-950/60 border border-slate-800/80 p-4 rounded-xl space-y-2.5 w-full text-slate-300">
+                <span className="font-bold text-slate-200 block text-[11px] uppercase tracking-wide border-b border-slate-800/85 pb-1.5 mb-1.5">
+                  How to turn off Developer Mode:
+                </span>
+                <ol className="list-decimal list-inside space-y-2 text-[10.5px] leading-relaxed">
+                  <li>Go to your phone's <strong>Settings</strong> app.</li>
+                  <li>Search for <strong>"developer tool"</strong> or <strong>"developer mode"</strong> and turn it off.</li>
+                  <li>If search is not available, find it in the <strong>"About Phone"</strong> or <strong>"System"</strong> section and disable the toggle.</li>
+                  <li>Ensure all mock GPS applications are closed and incognito/private browser tabs are closed.</li>
+                </ol>
               </div>
             </div>
           </div>
