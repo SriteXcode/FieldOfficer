@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
   LogOut, MapPin, CheckCircle, Clock, Send, Camera, 
-  Wifi, WifiOff, CloudLightning, ShieldCheck, Battery, RefreshCw, Compass, AlertOctagon
+  Wifi, WifiOff, CloudLightning, ShieldCheck, Battery, RefreshCw, Compass, AlertOctagon,
+  Settings
 } from 'lucide-react';
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
@@ -791,36 +792,51 @@ export default function FODashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Fake GPS Detection Warning Banner */}
+        {/* Fake GPS Detection Warning - Locked Screen Overlay */}
         {fakeGpsWarning && (
-          <div className="relative overflow-hidden flex items-start space-x-3.5 p-4 rounded-2xl border border-rose-500/35 bg-gradient-to-r from-rose-950/70 to-red-950/50 text-rose-200 text-xs shadow-lg shadow-rose-950/20 transition-all duration-300 hover:border-rose-500/50">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex-shrink-0 p-1.5 bg-rose-500/15 rounded-lg text-rose-400 animate-pulse mt-0.5">
-              <AlertOctagon className="w-5 h-5" />
-            </div>
-            <div className="space-y-1.5 flex-1 z-10">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                <span className="font-bold text-rose-400 block text-[13px] tracking-wide uppercase">
-                  🚨 Security Alert: Fake GPS Detected
-                </span>
-                {elapsedTime && fakeGpsDetectedAt && (
-                  <div className="text-[10px] text-rose-300 font-semibold flex flex-col items-end gap-0.5">
-                    <span className="bg-rose-950/60 border border-rose-800/40 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-rose-450" />
-                      <span>Duration: {elapsedTime}</span>
-                    </span>
-                    <span className="text-[9px] text-rose-400/80">
-                      Detected: {new Date(fakeGpsDetectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(fakeGpsDetectedAt).toLocaleDateString()})
-                    </span>
-                  </div>
-                )}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-xl p-4">
+            <div className="relative overflow-hidden flex flex-col items-center text-center max-w-md w-full p-6 rounded-2xl border border-rose-500/30 bg-slate-900/90 text-rose-200 text-xs shadow-2xl glass-panel">
+              {/* Background Ambient Glow Decors */}
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div className="flex-shrink-0 p-3.5 bg-rose-500/15 rounded-full text-rose-450 animate-bounce mb-4">
+                <AlertOctagon className="w-9 h-9" />
               </div>
-              <p className="font-medium text-rose-300/90 leading-relaxed">
+              
+              <h3 className="text-base font-bold text-rose-400 mb-2 uppercase tracking-wide">
+                🚨 Security Alert: Fake GPS Detected
+              </h3>
+              
+              <p className="font-medium text-rose-300/90 text-[12px] leading-relaxed mb-4">
                 The system has detected that your device is running a mock location provider, simulator, spoofing application, or is in **Incognito/Private browsing mode**.
               </p>
-              <p className="font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/40 p-2.5 rounded-lg text-[11px] leading-relaxed">
-                ⚠️ WARNING: Please disable any mock location settings, close private windows (use standard browsing), and use your real GPS. Continuous use of these features will result in your account being permanently blocked.
-              </p>
+              
+              <div className="font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/40 p-3 rounded-xl text-[11px] leading-relaxed mb-6">
+                ⚠️ WARNING: Please turn off **Developer Options** in your phone settings first, disable any mock location apps, close private/incognito windows, and use your real GPS. Continuous use of these features will result in your account being permanently blocked.
+              </div>
+
+              {elapsedTime && fakeGpsDetectedAt && (
+                <div className="text-[10px] text-rose-300 font-semibold mb-6 flex flex-col items-center gap-1 bg-rose-950/30 border border-rose-900/30 px-3 py-1.5 rounded-lg w-full">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <Clock className="w-3.5 h-3.5 text-rose-450" />
+                    <span>Duration: {elapsedTime}</span>
+                  </div>
+                  <span className="text-[9px] text-rose-400/80">
+                    Detected: {new Date(fakeGpsDetectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(fakeGpsDetectedAt).toLocaleDateString()})
+                  </span>
+                </div>
+              )}
+
+              <div className="flex gap-4 w-full">
+                <a
+                  href="intent:#Intent;action=android.settings.APPLICATION_DEVELOPMENT_SETTINGS;S.browser_fallback_url=https://www.google.com/search?q=how+to+disable+developer+options+android;end"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-600 to-red-650 hover:from-rose-500 hover:to-red-600 border border-rose-500/30 text-white rounded-xl text-[12px] font-bold shadow-lg shadow-rose-900/20 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Settings className="w-4 h-4 animate-spin" style={{ animationDuration: '5s' }} />
+                  Open Developer Settings
+                </a>
+              </div>
             </div>
           </div>
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { AlertTriangle, Clock } from 'lucide-react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import FODashboard from './pages/FODashboard';
@@ -44,24 +45,41 @@ axios.interceptors.request.use(async (config) => {
 
 // Inactivity session wrapper to monitor user interactions
 function SessionMonitor({ children, user, onLogout }) {
-  const timeoutRef = useRef(null);
+  const [showWarning, setShowWarning] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+
+  const warningTimeoutRef = useRef(null);
+  const logoutTimeoutRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
   const navigate = useNavigate();
 
-  // Inactivity timeout length (30 minutes default)
-  const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; 
+  // Inactivity timeout length (3 hours by default)
+  const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000;
+  // Warning duration (60 seconds)
+  const WARNING_DURATION = 60 * 1000;
 
   const resetTimer = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+    setShowWarning(false);
+
     if (user) {
-      timeoutRef.current = setTimeout(() => {
-        console.warn("Session expired due to inactivity.");
-        handleAutoLogout();
-      }, INACTIVITY_LIMIT);
+      // Set timeout for when warning should be shown (total inactivity limit minus the warning duration)
+      warningTimeoutRef.current = setTimeout(() => {
+        setShowWarning(true);
+      }, INACTIVITY_LIMIT - WARNING_DURATION);
     }
   };
 
   const handleAutoLogout = async () => {
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    
+    setShowWarning(false);
+    
     try {
       await axios.post('/api/auth/logout');
     } catch (e) {
@@ -71,26 +89,125 @@ function SessionMonitor({ children, user, onLogout }) {
     navigate('/login', { state: { expired: true } });
   };
 
+  const handleStayLoggedIn = () => {
+    resetTimer();
+  };
+
+  // Manage countdown and auto logout when warning is active
+  useEffect(() => {
+    if (showWarning) {
+      const seconds = Math.round(WARNING_DURATION / 1000);
+      setCountdown(seconds);
+
+      countdownIntervalRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownIntervalRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      logoutTimeoutRef.current = setTimeout(() => {
+        handleAutoLogout();
+      }, WARNING_DURATION);
+    } else {
+      if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    }
+
+    return () => {
+      if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, [showWarning]);
+
+  // Track activity events and reset timers if user is active
   useEffect(() => {
     if (!user) {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+      if (logoutTimeoutRef.current) clearTimeout(logoutTimeoutRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      setShowWarning(false);
       return;
     }
 
-    // Set initial timer
+    // Set initial warning timer
     resetTimer();
 
-    // Listen for activity events
+    // Listen for activity events ONLY if we are NOT currently showing the warning dialog
     const events = ['mousemove', 'keydown', 'mousedown', 'scroll', 'touchstart'];
-    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    const handleActivity = () => {
+      if (!showWarning) {
+        resetTimer();
+      }
+    };
+
+    events.forEach((ev) => window.addEventListener(ev, handleActivity));
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+      events.forEach((ev) => window.removeEventListener(ev, handleActivity));
     };
-  }, [user]);
+  }, [user, showWarning]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {showWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md transition-opacity duration-300">
+          <div className="relative w-full max-w-md p-6 mx-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden transform scale-100 transition-all duration-300 glass-panel">
+            {/* Background Ambient Glow Decors */}
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="p-3.5 bg-amber-500/10 text-amber-500 rounded-full animate-bounce mb-4">
+                <AlertTriangle size={32} />
+              </div>
+              
+              <h3 className="text-xl font-bold text-slate-100 mb-2 tracking-wide font-sans">
+                Are you still there?
+              </h3>
+              
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                You have been inactive for a while. For your security, your session will expire automatically soon.
+              </p>
+
+              {/* Progress Bar showing remaining time */}
+              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-6 border border-slate-700/30">
+                <div 
+                  className="bg-gradient-to-r from-amber-500 to-rose-500 h-full rounded-full transition-all duration-1000 ease-linear"
+                  style={{ width: `${(countdown / 60) * 100}%` }}
+                />
+              </div>
+
+              <div className="text-lg font-semibold text-slate-200 mb-6 flex items-center gap-2">
+                <Clock className="animate-spin text-amber-400" style={{ animationDuration: '3s' }} size={18} />
+                <span>Logging out in <span className="text-amber-400 font-mono font-bold">{countdown}s</span></span>
+              </div>
+
+              <div className="flex gap-4 w-full">
+                <button
+                  onClick={handleAutoLogout}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-400 border border-slate-700/80 hover:border-rose-500/80 hover:text-rose-400 rounded-xl transition-all duration-200"
+                >
+                  Logout
+                </button>
+                <button
+                  onClick={handleStayLoggedIn}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Stay Logged In
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // Route Guarding with PrivateRoute
