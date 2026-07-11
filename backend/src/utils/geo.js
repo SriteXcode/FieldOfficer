@@ -29,9 +29,15 @@ function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
 }
 
 // Verify location ping for GPS spoofing/developer options simulators
-async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimestamp, webdriver, ip, prevPings }) {
+async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimestamp, webdriver, ip, prevPings, isPrivate }) {
   let isSuspicious = false;
   const reasons = [];
+
+  // 0. Incognito/Private Mode Check
+  if (isPrivate === true || isPrivate === "true") {
+    isSuspicious = true;
+    reasons.push("Private browsing/Incognito mode detected");
+  }
 
   // 1. Webdriver/Automation check
   if (webdriver === true || webdriver === "true") {

@@ -10,7 +10,7 @@ async function logLiveLocation(req, res) {
       return res.status(403).json({ error: "Only Field Officers can send live locations." });
     }
 
-    const { latitude, longitude, accuracy, battery, network, device, gpsTimestamp, webdriver } = req.body;
+    const { latitude, longitude, accuracy, battery, network, device, gpsTimestamp, webdriver, isPrivate } = req.body;
 
     if (latitude === undefined || longitude === undefined) {
       return res.status(400).json({ error: "Latitude and Longitude are required." });
@@ -47,11 +47,22 @@ async function logLiveLocation(req, res) {
       gpsTimestamp,
       webdriver,
       ip: clientIp,
-      prevPings
+      prevPings,
+      isPrivate
     });
     
     const isSuspicious = verification.isSuspicious;
     const suspiciousReason = verification.suspiciousReason;
+
+    if (isSuspicious) {
+      const { logAction } = require("../utils/audit.js");
+      await logAction({
+        userId: req.user.id,
+        action: "GPS Spoofing Detected",
+        details: `Flagged during location ping: ${suspiciousReason}`,
+        req
+      });
+    }
 
     // Geocode current live location (optimized to save API quota on high-frequency pings)
     let address = "";

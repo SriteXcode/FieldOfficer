@@ -245,6 +245,19 @@ export default function SupervisorDashboard({ user, onLogout }) {
     }
   };
 
+  const formatSuspiciousDuration = (timestamp) => {
+    if (!timestamp) return '';
+    const diffMs = Date.now() - new Date(timestamp).getTime();
+    if (diffMs < 0) return '0 hours 0 minutes';
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    const hoursStr = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    const minutesStr = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    return `${hoursStr} ${minutesStr} ago`;
+  };
+
   // Fetch coordinates history and visits timeline for an officer on a specific day
   const fetchFoHistoryDetails = async () => {
     setHistoryLoading(true);
@@ -428,13 +441,20 @@ export default function SupervisorDashboard({ user, onLogout }) {
     <div className="min-h-screen bg-slate-950 pb-20">
       
       {/* Top Header */}
-      <header className="sticky top-0 bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex justify-between items-center z-40">
+      <header className="sticky top-0 bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 sm:px-6 py-4 flex justify-between items-center z-40">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-600/10 border border-sky-500/25 flex items-center justify-center font-extrabold text-sky-400 text-lg shadow-inner">
+          <div className="w-10 h-10 rounded-xl bg-sky-600/10 border border-sky-500/25 flex items-center justify-center font-extrabold text-sky-400 text-lg shadow-inner flex-shrink-0">
             RF
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100">Recovery Admin Portal</h2>
+            <h2 className="text-lg font-bold text-slate-100 flex flex-wrap items-center gap-1.5">
+              <span>Recovery Admin Portal</span>
+              {user.referralCode && (
+                <span className="md:hidden text-[9px] font-bold text-sky-400 bg-sky-950/40 border border-sky-850 px-1.5 py-0.5 rounded font-mono">
+                  Ref: {user.referralCode}
+                </span>
+              )}
+            </h2>
             <p className="text-xs text-slate-400">Supervisor Dashboard</p>
           </div>
         </div>
@@ -463,7 +483,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
       </header>
 
       {/* Main Grid Workspace */}
-      <main className="max-w-7xl mx-auto px-6 mt-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
         
         {/* Widget 1: Statistics Summary */}
         {activeWidgets.stats && (
@@ -667,7 +687,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     </span>
 
                     <div className="flex-grow space-y-1">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-wrap justify-between items-start gap-1">
                         <h4 className="text-xs font-bold text-slate-200">{v.consumerName}</h4>
                         <span className="text-[10px] text-slate-400 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
                       </div>
@@ -872,8 +892,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <th className="py-2.5 pr-4">User</th>
                   <th className="py-2.5 px-4">Action</th>
                   <th className="py-2.5 px-4">Details</th>
-                  <th className="py-2.5 px-4">IP Address</th>
-                  <th className="py-2.5 px-4">Browser/Device</th>
+                  <th className="py-2.5 px-4 hidden md:table-cell">IP Address</th>
+                  <th className="py-2.5 px-4 hidden lg:table-cell">Browser/Device</th>
                   <th className="py-2.5 pl-4">Timestamp</th>
                 </tr>
               </thead>
@@ -887,8 +907,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       </span>
                     </td>
                     <td className="py-2.5 px-4 max-w-xs truncate" title={log.details}>{log.details}</td>
-                    <td className="py-2.5 px-4 font-mono text-[10px] text-slate-400">{log.ip}</td>
-                    <td className="py-2.5 px-4 text-slate-400">{log.browser} / {log.device}</td>
+                    <td className="py-2.5 px-4 font-mono text-[10px] text-slate-400 hidden md:table-cell">{log.ip}</td>
+                    <td className="py-2.5 px-4 text-slate-400 hidden lg:table-cell">{log.browser} / {log.device}</td>
                     <td className="py-2.5 pl-4 font-mono text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</td>
                   </tr>
                 ))}
@@ -907,13 +927,13 @@ export default function SupervisorDashboard({ user, onLogout }) {
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
             <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
               {/* Header */}
-              <div className="flex justify-between items-center px-6 py-4.5 bg-slate-900 border-b border-slate-800">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-sky-600/10 border border-sky-500/25 rounded-2xl flex items-center justify-center text-sky-400">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 bg-slate-900 border-b border-slate-800 pr-16 sm:pr-6">
+                <div className="flex items-start sm:items-center space-x-3">
+                  <div className="w-10 h-10 bg-sky-600/10 border border-sky-500/25 rounded-2xl flex items-center justify-center text-sky-400 flex-shrink-0">
                     <Activity className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-100 flex flex-wrap items-center gap-1.5">
                       <span>{selectedFO.name}</span>
                       <span className="text-[10px] text-slate-400 bg-slate-850 px-2 py-0.5 rounded font-mono border border-slate-800">@{selectedFO.username}</span>
                     </h3>
@@ -931,7 +951,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                 </div>
                 <button
                   onClick={() => setIsFoModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-200 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl transition duration-150"
+                  className="absolute top-4.5 right-6 sm:relative sm:top-0 sm:right-0 p-2 text-slate-400 hover:text-slate-200 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl transition duration-150 flex-shrink-0"
                   title="Close popup"
                 >
                   <X className="w-5 h-5" />
@@ -1006,7 +1026,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                           {idx + 1}
                         </span>
                         <div className="flex-grow space-y-1.5">
-                          <div className="flex justify-between items-center">
+                          <div className="flex flex-wrap justify-between items-start gap-1.5">
                             <h4 className="text-[12px] font-bold text-slate-200">{v.consumerName}</h4>
                             <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
                               🕒 {new Date(v.timestamp).toLocaleTimeString()}
@@ -1109,11 +1129,22 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   {selectedFO.isSuspicious ? (
                     <div className="flex items-start space-x-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs">
                       <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400 animate-pulse" />
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 flex-1">
                         <span className="font-bold text-rose-400 block text-[13px]">🚨 Security Violations Flagged</span>
                         <span className="font-semibold block leading-relaxed text-rose-300">
                           {selectedFO.suspiciousReason || 'Multiple geolocation anomalies (mock GPS provider, constant zero drift, or stale hardware timestamp) were flagged for this officer.'}
                         </span>
+                        {selectedFO.lastSeen && (
+                          <div className="mt-2.5 pt-2 border-t border-rose-500/20 flex flex-wrap justify-between items-center text-[10px] text-rose-400 font-semibold gap-2">
+                            <span className="bg-rose-950/60 border border-rose-800/40 px-2 py-0.5 rounded flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-rose-450" />
+                              <span>Duration: {formatSuspiciousDuration(selectedFO.lastSeen)}</span>
+                            </span>
+                            <span className="text-rose-400/80">
+                              First Detected: {new Date(selectedFO.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(selectedFO.lastSeen).toLocaleDateString()})
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (

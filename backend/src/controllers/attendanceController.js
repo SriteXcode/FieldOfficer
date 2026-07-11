@@ -14,7 +14,7 @@ async function checkInOrOut(req, res) {
       return res.status(403).json({ error: "Only Field Officers can record attendance." });
     }
 
-    const { type, latitude, longitude, accuracy, battery, network, device, browser, gpsTimestamp, webdriver } = req.body;
+    const { type, latitude, longitude, accuracy, battery, network, device, browser, gpsTimestamp, webdriver, isPrivate } = req.body;
 
     if (type !== "checkIn" && type !== "checkOut") {
       return res.status(400).json({ error: "Invalid type. Must be checkIn or checkOut." });
@@ -60,11 +60,21 @@ async function checkInOrOut(req, res) {
       gpsTimestamp,
       webdriver,
       ip: clientIp,
-      prevPings
+      prevPings,
+      isPrivate
     });
     
     const isSuspicious = verification.isSuspicious;
     const suspiciousReason = verification.suspiciousReason;
+
+    if (isSuspicious) {
+      await logAction({
+        userId: req.user.id,
+        action: "GPS Spoofing Detected",
+        details: `Flagged during ${type}: ${suspiciousReason}`,
+        req
+      });
+    }
 
     // Reverse geocode
     const address = await reverseGeocode(latitude, longitude);

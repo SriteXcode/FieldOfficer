@@ -6,10 +6,41 @@ import Register from './pages/Register';
 import FODashboard from './pages/FODashboard';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import RMDashboard from './pages/RMDashboard';
+import { detectIncognito } from './utils/detectIncognito';
 
 // Set Axios defaults
 axios.defaults.withCredentials = true;
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
+// Request Interceptor to automatically attach standard Authorization Bearer header
+axios.interceptors.request.use(async (config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Inject isPrivate flag if running in private/incognito browsing mode
+  try {
+    const result = await detectIncognito();
+    if (result && result.isPrivate) {
+      if (config.method === 'post' || config.method === 'put') {
+        if (typeof config.data === 'object' && config.data !== null) {
+          config.data.isPrivate = true;
+        } else if (typeof config.data === 'string') {
+          try {
+            const parsed = JSON.parse(config.data);
+            parsed.isPrivate = true;
+            config.data = JSON.stringify(parsed);
+          } catch (e) {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Private mode detection failed:", err);
+  }
+
+  return config;
+});
 
 // Inactivity session wrapper to monitor user interactions
 function SessionMonitor({ children, user, onLogout }) {
@@ -100,18 +131,9 @@ export default function App() {
   });
   const [loading, setLoading] = useState(false);
 
-  // Set up Axios interceptors for handling 401 session expirations and attaching JWT tokens globally
+  // Set up Axios response interceptor for handling 401 session expirations
   useEffect(() => {
-    // 1. Request Interceptor to automatically attach standard Authorization Bearer header
-    const reqInterceptor = axios.interceptors.request.use((config) => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
-
-    // 2. Response Interceptor to capture token expiration redirecting to login
+    // Response Interceptor to capture token expiration redirecting to login
     const resInterceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -133,7 +155,6 @@ export default function App() {
     );
 
     return () => {
-      axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
   }, []);

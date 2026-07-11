@@ -26,7 +26,8 @@ async function logVisit(req, res) {
       device, 
       browser,
       gpsTimestamp,
-      webdriver
+      webdriver,
+      isPrivate
     } = req.body;
 
     if (!consumerName || latitude === undefined || longitude === undefined) {
@@ -70,11 +71,21 @@ async function logVisit(req, res) {
       gpsTimestamp,
       webdriver,
       ip: clientIp,
-      prevPings
+      prevPings,
+      isPrivate
     });
     
     const isSuspicious = verification.isSuspicious;
     const suspiciousReason = verification.suspiciousReason;
+
+    if (isSuspicious) {
+      await logAction({
+        userId: req.user.id,
+        action: "GPS Spoofing Detected",
+        details: `Flagged during visit logging: ${suspiciousReason}`,
+        req
+      });
+    }
 
     // Verify address
     const detectedAddress = await reverseGeocode(latitude, longitude);

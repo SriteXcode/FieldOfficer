@@ -46,10 +46,12 @@ export default function DashboardWidgets({ onWidgetsChange }) {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold shadow transition"
+        className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold shadow transition"
+        title="Customize Dashboard Widgets"
       >
         <LayoutGrid className="w-4 h-4 text-sky-400" />
-        <span>Customize Dashboard Widgets</span>
+        <span className="hidden sm:inline">Customize Dashboard Widgets</span>
+        <span className="sm:hidden">Widgets</span>
       </button>
 
       {isOpen && (

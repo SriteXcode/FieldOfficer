@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
+import { detectIncognito } from '../utils/detectIncognito';
 
 const MAX_ACCEPTABLE_ACCURACY_METERS = 150;
 const RECENT_COORDS_MAX_AGE_MS = 15000;
@@ -27,7 +28,13 @@ export default function FODashboard({ user, onLogout }) {
   const [telemetry, setTelemetry] = useState({ battery: 100, network: 'Unknown', accuracy: 0 });
   const [detectedAddress, setDetectedAddress] = useState('Detecting location...');
   const [gpsError, setGpsError] = useState('');
-  const [fakeGpsWarning, setFakeGpsWarning] = useState(false);
+  const [fakeGpsWarning, setFakeGpsWarning] = useState(() => {
+    return !!localStorage.getItem('fakeGpsDetectedAt');
+  });
+  const [fakeGpsDetectedAt, setFakeGpsDetectedAt] = useState(() => {
+    return localStorage.getItem('fakeGpsDetectedAt') || null;
+  });
+  const [elapsedTime, setElapsedTime] = useState('');
 
   const pingLocation = async (lat, lng, acc) => {
     if (acc > MAX_ACCEPTABLE_ACCURACY_METERS) {
@@ -101,6 +108,21 @@ export default function FODashboard({ user, onLogout }) {
   const syncIntervalRef = useRef(null);
   const latestCoordsRef = useRef(null);
 
+  // Check private / incognito browsing mode on mount
+  useEffect(() => {
+    const checkPrivateMode = async () => {
+      try {
+        const result = await detectIncognito();
+        if (result && result.isPrivate) {
+          setFakeGpsWarning(true);
+        }
+      } catch (err) {
+        console.warn("Incognito mode check failed:", err);
+      }
+    };
+    checkPrivateMode();
+  }, []);
+
   // Monitor network status
   useEffect(() => {
     const handleOnline = () => {
@@ -150,6 +172,48 @@ export default function FODashboard({ user, onLogout }) {
 
   const checkedIn = !!attendance?.checkIn;
   const checkedOut = !!attendance?.checkOut;
+
+  // Persist fake GPS detection timestamp when fakeGpsWarning is triggered
+  useEffect(() => {
+    if (fakeGpsWarning) {
+      if (!fakeGpsDetectedAt) {
+        const timestamp = new Date().toISOString();
+        localStorage.setItem('fakeGpsDetectedAt', timestamp);
+        setFakeGpsDetectedAt(timestamp);
+      }
+    } else {
+      localStorage.removeItem('fakeGpsDetectedAt');
+      setFakeGpsDetectedAt(null);
+    }
+  }, [fakeGpsWarning, fakeGpsDetectedAt]);
+
+  // Update mock GPS warning duration timer dynamically
+  useEffect(() => {
+    if (!fakeGpsDetectedAt) {
+      setElapsedTime('');
+      return;
+    }
+
+    const updateTimer = () => {
+      const diffMs = Date.now() - new Date(fakeGpsDetectedAt).getTime();
+      if (diffMs < 0) {
+        setElapsedTime('0 hours 0 minutes');
+        return;
+      }
+      const totalMinutes = Math.floor(diffMs / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      
+      const hoursStr = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+      const minutesStr = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+      setElapsedTime(`${hoursStr} ${minutesStr}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 10000); // update every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [fakeGpsDetectedAt]);
 
 
 
@@ -621,6 +685,7 @@ export default function FODashboard({ user, onLogout }) {
   };
 
   const handleLogoutClick = async () => {
+    localStorage.removeItem('fakeGpsDetectedAt');
     try {
       await axios.post('/api/auth/logout');
     } catch (e) {
@@ -720,14 +785,27 @@ export default function FODashboard({ user, onLogout }) {
               <AlertOctagon className="w-5 h-5" />
             </div>
             <div className="space-y-1.5 flex-1 z-10">
-              <span className="font-bold text-rose-400 block text-[13px] tracking-wide uppercase">
-                🚨 Security Alert: Fake GPS Detected
-              </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <span className="font-bold text-rose-400 block text-[13px] tracking-wide uppercase">
+                  🚨 Security Alert: Fake GPS Detected
+                </span>
+                {elapsedTime && fakeGpsDetectedAt && (
+                  <div className="text-[10px] text-rose-300 font-semibold flex flex-col items-end gap-0.5">
+                    <span className="bg-rose-950/60 border border-rose-800/40 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-rose-450" />
+                      <span>Duration: {elapsedTime}</span>
+                    </span>
+                    <span className="text-[9px] text-rose-400/80">
+                      Detected: {new Date(fakeGpsDetectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(fakeGpsDetectedAt).toLocaleDateString()})
+                    </span>
+                  </div>
+                )}
+              </div>
               <p className="font-medium text-rose-300/90 leading-relaxed">
-                The system has detected that your device is running a mock location provider, simulator, or location spoofing application.
+                The system has detected that your device is running a mock location provider, simulator, spoofing application, or is in **Incognito/Private browsing mode**.
               </p>
               <p className="font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/40 p-2.5 rounded-lg text-[11px] leading-relaxed">
-                ⚠️ WARNING: Please disable any mock location settings or spoofing apps immediately and use your real GPS. Continuous use of fake GPS will result in your account being permanently blocked.
+                ⚠️ WARNING: Please disable any mock location settings, close private windows (use standard browsing), and use your real GPS. Continuous use of these features will result in your account being permanently blocked.
               </p>
             </div>
           </div>
