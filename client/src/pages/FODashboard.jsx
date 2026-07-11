@@ -58,6 +58,8 @@ export default function FODashboard({ user, onLogout }) {
         const res = await axios.post('/api/locations', locationPing);
         if (res.data?.isSuspicious) {
           setFakeGpsWarning(true);
+        } else {
+          setFakeGpsWarning(false);
         }
       } catch (e) {
         await addToQueue('locations', locationPing);
@@ -246,6 +248,8 @@ export default function FODashboard({ user, onLogout }) {
         }
         if (todayAtt.checkIn?.isSuspicious || todayAtt.checkOut?.isSuspicious) {
           setFakeGpsWarning(true);
+        } else {
+          setFakeGpsWarning(false);
         }
       }
     } catch (e) {
@@ -298,6 +302,8 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/attendance', item);
           if (res.data?.isSuspicious || res.data?.attendance?.checkIn?.isSuspicious || res.data?.attendance?.checkOut?.isSuspicious) {
             setFakeGpsWarning(true);
+          } else {
+            setFakeGpsWarning(false);
           }
           await removeFromQueue('attendance', item.id);
         }
@@ -310,6 +316,8 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/locations', item);
           if (res.data?.isSuspicious) {
             setFakeGpsWarning(true);
+          } else {
+            setFakeGpsWarning(false);
           }
           await removeFromQueue('locations', item.id);
         }
@@ -322,6 +330,8 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/visits', item);
           if (res.data?.isSuspicious || res.data?.visit?.isSuspicious) {
             setFakeGpsWarning(true);
+          } else {
+            setFakeGpsWarning(false);
           }
           await removeFromQueue('visits', item.id);
         }
@@ -563,6 +573,8 @@ export default function FODashboard({ user, onLogout }) {
           setAttendance(res.data.attendance);
           if (res.data?.isSuspicious || res.data?.attendance?.checkIn?.isSuspicious || res.data?.attendance?.checkOut?.isSuspicious) {
             setFakeGpsWarning(true);
+          } else {
+            setFakeGpsWarning(false);
           }
           setAlert({ type: 'success', message: `${type === 'checkIn' ? 'Check-in' : 'Check-out'} completed successfully.` });
           
@@ -652,6 +664,8 @@ export default function FODashboard({ user, onLogout }) {
           const res = await axios.post('/api/visits', visitData);
           if (res.data?.isSuspicious || res.data?.visit?.isSuspicious) {
             setFakeGpsWarning(true);
+          } else {
+            setFakeGpsWarning(false);
           }
           setAlert({ type: 'success', message: `Visit for '${consumerName}' recorded successfully!` });
           resetForm();

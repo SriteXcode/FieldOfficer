@@ -19,13 +19,15 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 // to flag mock location wrappers/jumps
 function isSpeedUnrealistic(lat1, lon1, time1, lat2, lon2, time2) {
   const dist = calculateDistance(lat1, lon1, lat2, lon2);
-  const timeDiffHrs = Math.abs(new Date(time2) - new Date(time1)) / (1000 * 60 * 60);
+  const timeDiffMs = Math.abs(new Date(time2) - new Date(time1));
   
-  if (timeDiffHrs === 0) return false;
+  // Ignore speed check if updates are less than 60 seconds apart to prevent coarse-to-fine GPS settling jumps (e.g. cellular to satellite GPS locks)
+  if (timeDiffMs < 60000) return false;
   
+  const timeDiffHrs = timeDiffMs / (1000 * 60 * 60);
   const speed = dist / timeDiffHrs; // km/h
-  // If speed is greater than 100km/h and distance is substantial (> 0.5km), flag it
-  return speed > 100 && dist > 0.5;
+  // Flag only extremely fast speeds (>250km/h over substantial distance >1.0km) to avoid false positives for highway/railway users
+  return speed > 250 && dist > 1.0;
 }
 
 // Verify location ping for GPS spoofing/developer options simulators
@@ -62,31 +64,29 @@ async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimesta
     }
   }
 
-  // 3. Zero GPS Drift Check (Android Developer Options Mock GPS / Chrome sensor simulator)
-  // Genuine GPS signals always exhibit minor fluctuations (drift) even when stationary.
-  // Exactly identical decimal values over 3 consecutive updates indicate a static simulator.
-  if (prevPings && prevPings.length >= 2) {
-    const p1 = prevPings[0];
-    const p2 = prevPings[1];
-    if (
-      p1.latitude === latitude &&
-      p1.longitude === longitude &&
-      p2.latitude === latitude &&
-      p2.longitude === longitude
-    ) {
-      isSuspicious = true;
-      reasons.push("Constant zero GPS drift (static mock location provider)");
-    }
-  }
+  // 3. Zero GPS Drift Check
+  // Note: Disabled to prevent false positives when users are stationary (in office/home)
+  // and the browser returns cached cell/Wi-Fi coordinates which are exactly identical.
 
   // 4. Stale/Injected GPS Hardware Timestamp Check
   if (gpsTimestamp) {
-    const gpsTime = new Date(Number(gpsTimestamp)).getTime();
-    const serverTime = Date.now();
-    // If the hardware GPS time differs from the server clock by > 45s, it is stale/mocked.
-    if (Number.isFinite(gpsTime) && Math.abs(serverTime - gpsTime) > 45000) {
-      isSuspicious = true;
-      reasons.push("Stale/manipulated GPS hardware timestamp");
+    let gpsTime = Number(gpsTimestamp);
+    if (Number.isFinite(gpsTime)) {
+      // Convert Unix timestamp in seconds (10 digits) to milliseconds (13 digits)
+      if (gpsTime < 10000000000) {
+        gpsTime = gpsTime * 1000;
+      }
+      
+      // Ignore checks if timestamp is relative (uptime/performance.now) or invalid epoch (less than year 2020)
+      const minEpoch = new Date("2020-01-01").getTime();
+      if (gpsTime >= minEpoch) {
+        const serverTime = Date.now();
+        // Allow up to 15 minutes discrepancy (900000ms) to accommodate standard browser caching for battery savings
+        if (Math.abs(serverTime - gpsTime) > 900000) {
+          isSuspicious = true;
+          reasons.push("Stale/manipulated GPS hardware timestamp");
+        }
+      }
     }
   }
 
@@ -107,8 +107,8 @@ async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimesta
           const data = await res.json();
           if (data && data.status === "success" && data.lat !== undefined && data.lon !== undefined) {
             const dist = calculateDistance(data.lat, data.lon, latitude, longitude);
-            // If reported GPS coordinates mismatch IP provider center by > 200 km, flag it.
-            if (dist > 200) {
+            // Relaxed mismatch threshold to 1000km to prevent false positives caused by mobile carrier ISP routing gateways
+            if (dist > 1000) {
               isSuspicious = true;
               reasons.push(`Network IP and GPS mismatch (> ${Math.round(dist)}km)`);
             }

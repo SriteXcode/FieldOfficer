@@ -128,7 +128,13 @@ export const detectIncognito = function () {
         // >= 76
         function storageQuotaChromePrivateTest() {
             navigator.webkitTemporaryStorage.queryUsageAndQuota(function (usage, quota) {
-                __callback(quota < getQuotaLimit());
+                // In standard/normal mode, quota is determined by available device storage (hundreds of MBs to GBs).
+                // In incognito mode, the browser caps the temporary storage quota to a small pool (usually <= 120MB).
+                // On mobile devices in normal mode, the browser might return a smaller disk-space quota (e.g. 200MB - 300MB),
+                // so we use a safety limit threshold to avoid false-positives for normal mobile Chrome users.
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                const threshold = isMobile ? (60 * 1024 * 1024) : (120 * 1024 * 1024);
+                __callback(quota < threshold);
             }, function (e) {
                 __callback(false);
             });
