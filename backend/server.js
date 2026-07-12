@@ -14,6 +14,7 @@ const { logLiveLocation, getLocationHistory, getLiveOfficers } = require("./src/
 const { getSettings, updateSettings } = require("./src/controllers/settingController.js");
 const { broadcastAnnouncement, getAnnouncements } = require("./src/controllers/announcementController.js");
 const { getAuditLogs, getAnalytics } = require("./src/controllers/reportController.js");
+const { sendMessage, getMessages } = require("./src/controllers/chatController.js");
 
 // Middlewares
 const { protect, authorize } = require("./src/middleware/auth.js");
@@ -77,6 +78,9 @@ app.post("/api/settings", protect, authorize("Supervisor"), updateSettings);
 
 app.post("/api/announcements", protect, authorize("Supervisor"), broadcastAnnouncement);
 app.get("/api/announcements", protect, getAnnouncements);
+
+app.post("/api/chat", protect, sendMessage);
+app.get("/api/chat", protect, getMessages);
 
 app.get("/api/reports/audit-logs", protect, authorize("Supervisor", "Regional Manager"), getAuditLogs);
 app.get("/api/reports/analytics", protect, authorize("Supervisor", "Regional Manager"), getAnalytics);
@@ -162,6 +166,11 @@ function configureSocket(server) {
     socket.on("join_room", (roomId) => {
       socket.join(roomId);
       console.log(`Client ${socket.id} joined room: ${roomId}`);
+    });
+
+    socket.on("leave_room", (roomId) => {
+      socket.leave(roomId);
+      console.log(`Client ${socket.id} left room: ${roomId}`);
     });
 
     socket.on("disconnect", () => {

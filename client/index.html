@@ -20,6 +20,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="bg-slate-900 text-slate-100 font-sans antialiased overflow-x-hidden">
+    <script>
+      // Primitive Right-Click and Developer Keyboard Shortcut Blocker
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (
+          e.keyCode === 123 || // F12 key
+          (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Ctrl+Shift+I / J / C
+          (e.ctrlKey && e.keyCode === 85) // Ctrl+U (View Source)
+        ) {
+          e.preventDefault();
+        }
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

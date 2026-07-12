@@ -269,6 +269,15 @@ export default function App() {
 
     // 2. Active DevTools presence verification
     const threshold = 160;
+
+    // Getter-based object to detect console opening
+    const devtoolsDetector = new Image();
+    Object.defineProperty(devtoolsDetector, 'id', {
+      get: function () {
+        setDevToolsBlocked(true);
+      }
+    });
+
     const check = () => {
       // Check docked DevTools (looks for significant discrepancies in window dimensions)
       const widthDev = window.outerWidth - window.innerWidth > threshold;
@@ -283,10 +292,12 @@ export default function App() {
         timeDev = true;
       }
 
+      // Log the detector object. If the console is open, the browser will evaluate the getter
+      console.log(devtoolsDetector);
+      console.clear();
+
       if (widthDev || heightDev || timeDev) {
         setDevToolsBlocked(true);
-      } else {
-        setDevToolsBlocked(false);
       }
     };
 

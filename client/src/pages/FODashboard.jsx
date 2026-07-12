@@ -1,9 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import io from 'socket.io-client';
 import { 
-  LogOut, MapPin, CheckCircle, Clock, Send, Camera, 
-  Wifi, WifiOff, CloudLightning, ShieldCheck, Battery, RefreshCw, Compass, AlertOctagon,
-  Settings
+  Camera, 
+  MapPin, 
+  LogOut, 
+  RefreshCw, 
+  Clock, 
+  CheckCircle, 
+  AlertTriangle,
+  AlertOctagon,
+  Battery,
+  Wifi,
+  WifiOff,
+  CloudLightning,
+  ShieldCheck,
+  Upload,
+  X,
+  Send,
+  MessageSquare,
+  Compass,
+  Settings,
+  BookOpen
 } from 'lucide-react';
 import { addToQueue, getQueue, removeFromQueue } from '../utils/db';
 import CameraModal from '../components/CameraModal';
@@ -113,10 +131,99 @@ export default function FODashboard({ user, onLogout }) {
   // Status Alerts
   const [alert, setAlert] = useState({ type: '', message: '' });
 
+  // Chat & Socket states
+  const [socket, setSocket] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [messageText, setMessageText] = useState('');
+  const [chatImage, setChatImage] = useState(null); // base64 string
+  const chatEndRef = useRef(null);
+
   const watchIdRef = useRef(null);
   const pingIntervalRef = useRef(null);
   const syncIntervalRef = useRef(null);
   const latestCoordsRef = useRef(null);
+  const wakeLockRef = useRef(null);
+  const silentAudioRef = useRef(null);
+
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        console.log('💡 Wake Lock active');
+      } catch (err) {
+        console.warn(`Wake Lock request failed: ${err.message}`);
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+        console.log('💡 Wake Lock released');
+      } catch (err) {
+        console.warn(`Wake Lock release failed: ${err.message}`);
+      }
+    }
+  };
+
+  const startSilentAudio = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(ctx.destination);
+      source.start(0);
+      silentAudioRef.current = { ctx, source };
+      console.log('🔊 Silent background audio active');
+    } catch (err) {
+      console.warn("Silent audio context start failed:", err);
+    }
+  };
+
+  const stopSilentAudio = () => {
+    try {
+      if (silentAudioRef.current) {
+        silentAudioRef.current.source.stop();
+        silentAudioRef.current.ctx.close();
+        silentAudioRef.current = null;
+        console.log('🔊 Silent background audio stopped');
+      }
+    } catch (err) {
+      console.warn("Silent audio context stop failed:", err);
+    }
+  };
+
+  // Handle page close warning when checked in
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (attendance && !attendance.checkOut) {
+        const msg = "You are currently checked in. Closing this tab will stop location tracking.";
+        e.preventDefault();
+        e.returnValue = msg;
+        return msg;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [attendance]);
+
+  // Re-acquire Wake Lock when app is brought back to the foreground
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && attendance && !attendance.checkOut) {
+        await requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [attendance]);
 
   // Check private / incognito browsing mode and mock GPS on mount
   useEffect(() => {
@@ -138,32 +245,116 @@ export default function FODashboard({ user, onLogout }) {
     checkSecurityOnMount();
   }, []);
 
-  // Track continuous suspicious accuracy (exactly 1m or -1m) for 20 minutes (with localStorage persistence to survive reloads)
+  // Scroll to bottom of chat
   useEffect(() => {
-    const checkNegativeAccuracy = () => {
-      const isSuspiciousAccuracy = telemetry.accuracy === -1 || telemetry.accuracy === 1;
-      
-      if (isSuspiciousAccuracy) {
-        let startTimeStr = localStorage.getItem('negAccuracyStart');
-        if (!startTimeStr) {
-          startTimeStr = Date.now().toString();
-          localStorage.setItem('negAccuracyStart', startTimeStr);
-        } else {
-          const elapsed = Date.now() - parseInt(startTimeStr, 10);
-          if (elapsed >= 20 * 60 * 1000) {
-            setFakeGpsWarning(true);
-          }
-        }
-      } else {
-        localStorage.removeItem('negAccuracyStart');
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  useEffect(() => {
+    // 1. Fetch announcements
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await axios.get('/api/announcements');
+        setAnnouncements(res.data.announcements || []);
+      } catch (err) {
+        console.error("Failed to fetch announcements:", err);
       }
     };
 
-    checkNegativeAccuracy();
-    const interval = setInterval(checkNegativeAccuracy, 10000); // Check every 10 seconds
+    // 2. Fetch chat history
+    const fetchChatMessages = async () => {
+      if (!user.supervisorId) return;
+      try {
+        const res = await axios.get(`/api/chat?userId=${user.supervisorId}`);
+        setChatMessages(res.data.messages || []);
+      } catch (err) {
+        console.error("Failed to fetch chat messages:", err);
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, [telemetry.accuracy]);
+    fetchAnnouncements();
+    fetchChatMessages();
+
+    // 3. Initialize Socket.io
+    const getSocketUrl = () => {
+      if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+      }
+      return 'https://fieldofficer-1.onrender.com';
+    };
+    const socketInstance = io(getSocketUrl(), { withCredentials: true });
+    setSocket(socketInstance);
+
+    socketInstance.on('connect', () => {
+      console.log('Socket connected');
+      // Join rooms
+      socketInstance.emit('join_room', `chat_${user.id || user._id}`);
+      if (user.supervisorId) {
+        socketInstance.emit('join_room', `supervisor_${user.supervisorId}`);
+      }
+    });
+
+    socketInstance.on('new_announcement', (ann) => {
+      setAnnouncements(prev => [ann, ...prev]);
+    });
+
+    socketInstance.on('new_message', (msg) => {
+      // Only append if it belongs to this chat
+      const selfId = user.id || user._id;
+      if (
+        (msg.senderId === selfId || msg.senderId === user.supervisorId) &&
+        (msg.receiverId === selfId || msg.receiverId === user.supervisorId)
+      ) {
+        setChatMessages(prev => {
+          if (prev.some(m => m._id === msg._id || m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+    });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [user]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if ((!messageText.trim() && !chatImage) || !user.supervisorId) return;
+
+    try {
+      const payload = {
+        receiverId: user.supervisorId,
+        content: messageText,
+        image: chatImage || ""
+      };
+
+      const res = await axios.post('/api/chat', payload);
+      const newMsg = res.data.chatMessage;
+
+      // Append locally to prevent waiting
+      setChatMessages(prev => {
+        if (prev.some(m => m._id === newMsg._id || m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      setMessageText('');
+      setChatImage(null);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
+
+  const handleChatImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setChatImage(reader.result); // base64 encoding
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Monitor network status
   useEffect(() => {
@@ -389,56 +580,8 @@ export default function FODashboard({ user, onLogout }) {
   };
 
   // Helper to verify GPS hardware integrity by running 5 rapid queries
-  // and detecting constant coordinates + constant accuracy in the range 1m-3m (typical mock GPS profile).
+  // Disabled as per supervisor request: +-1m accuracy can be reported by normal phones and cached by browser/OS, leading to false alerts.
   const verifyGpsHardware = async () => {
-    if (!navigator.geolocation) return false;
-    
-    const pings = [];
-    const count = 5;
-    
-    try {
-      for (let i = 0; i < count; i++) {
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        const pos = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve, 
-            reject, 
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-          );
-        });
-        pings.push(pos.coords);
-      }
-    } catch (err) {
-      console.warn("Rapid GPS validation check failed:", err);
-      return false;
-    }
-    
-    const first = pings[0];
-    
-    // Check if accuracy is in the suspicious mock GPS range (+-1m to 3m)
-    if (first.accuracy >= 1 && first.accuracy <= 3) {
-      let allConstant = true;
-      for (let i = 1; i < pings.length; i++) {
-        const p = pings[i];
-        if (
-          p.latitude !== first.latitude ||
-          p.longitude !== first.longitude ||
-          p.accuracy !== first.accuracy
-        ) {
-          allConstant = false;
-          break;
-        }
-      }
-      
-      if (allConstant) {
-        console.warn("Mock GPS detected by static precision signature (1m-3m accuracy with zero drift).");
-        return true;
-      }
-    }
-    
     return false;
   };
 
@@ -558,11 +701,15 @@ export default function FODashboard({ user, onLogout }) {
       pingIntervalRef.current = null;
     }
     setGpsError('');
+    releaseWakeLock();
+    stopSilentAudio();
   };
 
   // Watch position for continuous tracking
   const startLiveTracking = () => {
     stopLiveTracking();
+    requestWakeLock();
+    startSilentAudio();
 
     if (!navigator.geolocation) {
       setGpsError("Geolocation is not supported by your browser.");
@@ -609,17 +756,7 @@ export default function FODashboard({ user, onLogout }) {
         setTelemetry(t => ({ ...t, accuracy }));
         setGpsError(''); // clear any errors
 
-        // Check if we just recovered from a continuous suspicious accuracy block
-        const startTimeStr = localStorage.getItem('negAccuracyStart');
-        const isSuspiciousAccuracy = accuracy === -1 || accuracy === 1;
-        if (startTimeStr && !isSuspiciousAccuracy && accuracy > 1) {
-          const elapsed = Date.now() - parseInt(startTimeStr, 10);
-          localStorage.removeItem('negAccuracyStart');
-          if (elapsed >= 20 * 60 * 1000) {
-            // Trigger a location ping immediately to verify the new coordinates and unlock the app
-            pingLocation(latitude, longitude, accuracy);
-          }
-        }
+
       },
       (err) => {
         console.error("GPS Watch failed:", err);
@@ -763,7 +900,7 @@ export default function FODashboard({ user, onLogout }) {
         return;
       }
 
-      const pos = await getCoordinates({ requireAccurate: true });
+      const pos = await getCoordinates({ requireAccurate: false });
       const { latitude, longitude, accuracy } = pos.coords;
 
       const visitData = {
@@ -790,7 +927,10 @@ export default function FODashboard({ user, onLogout }) {
           } else {
             setFakeGpsWarning(false);
           }
-          setAlert({ type: 'success', message: `Visit for '${consumerName}' recorded successfully!` });
+          setAlert({ 
+            type: 'success', 
+            message: `Visit for '${consumerName}' recorded successfully! (GPS Accuracy: ±${Math.round(accuracy)}m)` 
+          });
           resetForm();
         } catch (error) {
           setAlert({ type: 'error', message: error.response?.data?.error || 'Failed to submit visit.' });
@@ -800,7 +940,10 @@ export default function FODashboard({ user, onLogout }) {
         visitData.id = `offline_${Date.now()}`;
         await addToQueue('visits', visitData);
         await updateQueueSize();
-        setAlert({ type: 'warning', message: `Offline Mode: Visit for '${consumerName}' saved locally. It will upload automatically when online.` });
+        setAlert({ 
+          type: 'warning', 
+          message: `Offline Mode: Visit for '${consumerName}' saved locally with GPS Accuracy: ±${Math.round(accuracy)}m. It will upload automatically when online.` 
+        });
         resetForm();
       }
     } catch (err) {
@@ -1207,6 +1350,120 @@ export default function FODashboard({ user, onLogout }) {
                   </>
                 )}
               </button>
+            </form>
+          </section>
+        )}
+
+        {/* 3. Team Broadcast Announcements */}
+        <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4 text-left">
+          <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
+            <BookOpen className="w-4 h-4 text-sky-400" />
+            <span>Team Announcements</span>
+          </h3>
+          <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+            {announcements.map((ann, idx) => (
+              <div key={idx} className="bg-slate-900/40 border border-slate-850 p-3.5 rounded-xl space-y-1">
+                <div className="flex justify-between items-start gap-1">
+                  <h4 className="text-xs font-bold text-sky-400">{ann.title}</h4>
+                  <span className="text-[9px] text-slate-500 font-mono">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed break-words">{ann.content}</p>
+                <span className="text-[8px] text-slate-500 block text-right">
+                  From: {ann.senderName || 'Supervisor'} • {new Date(ann.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+            {announcements.length === 0 && (
+              <p className="text-xs text-slate-500 text-center py-6">No announcements broadcasted yet.</p>
+            )}
+          </div>
+        </section>
+
+        {/* 4. Live Chat with Supervisor */}
+        {user.supervisorId && (
+          <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4 text-left flex flex-col min-h-[350px]">
+            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5 border-b border-slate-800 pb-2">
+              <MessageSquare className="w-4 h-4 text-sky-400" />
+              <span>Chat with Supervisor</span>
+            </h3>
+
+            {/* Chat Messages */}
+            <div className="flex-grow overflow-y-auto max-h-[220px] bg-slate-950/40 p-3.5 rounded-xl border border-slate-850 space-y-3 mb-4 custom-scrollbar">
+              {chatMessages.map((msg, idx) => {
+                const selfId = user.id || user._id;
+                const isSelf = msg.senderId === selfId;
+                return (
+                  <div key={idx} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs text-left ${
+                      isSelf 
+                        ? 'bg-sky-600 text-white rounded-tr-none' 
+                        : 'bg-slate-800 text-slate-200 rounded-tl-none'
+                    }`}>
+                      {msg.content && <p className="break-words leading-relaxed">{msg.content}</p>}
+                      {msg.image && (
+                        <div className="mt-2 rounded overflow-hidden max-w-[180px]">
+                          <img 
+                            src={msg.image} 
+                            className="w-full object-cover cursor-pointer max-h-[120px]" 
+                            alt="Live share" 
+                            onClick={() => window.open(msg.image, '_blank')}
+                          />
+                        </div>
+                      )}
+                      <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-200' : 'text-slate-500'}`}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {chatMessages.length === 0 && (
+                <div className="text-xs text-slate-500 text-center py-8">No messages yet. Say hello to your supervisor!</div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Message input */}
+            <form onSubmit={handleSendMessage} className="space-y-2">
+              {chatImage && (
+                <div className="flex items-center space-x-2 bg-slate-900/60 p-2 rounded-xl border border-slate-850 w-fit">
+                  <div className="w-10 h-10 rounded overflow-hidden border border-slate-800 flex-shrink-0">
+                    <img src={chatImage} className="w-full h-full object-cover" alt="Upload preview" />
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setChatImage(null)}
+                    className="p-1 text-rose-450 hover:bg-slate-800 rounded transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <label className="p-2 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-250 border border-slate-750 rounded-lg cursor-pointer transition flex-shrink-0" title="Attach Live Image">
+                  <Camera className="w-4 h-4" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleChatImageSelect} 
+                    className="hidden" 
+                  />
+                </label>
+                <input 
+                  type="text" 
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-grow bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition"
+                />
+                <button 
+                  type="submit"
+                  className="p-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex-shrink-0 shadow-lg shadow-sky-600/10"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             </form>
           </section>
         )}

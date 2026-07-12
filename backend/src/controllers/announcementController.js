@@ -45,10 +45,12 @@ async function broadcastAnnouncement(req, res) {
     const io = req.app.get("io");
     if (io) {
       io.to(`supervisor_${req.user.id}`).emit("new_announcement", {
+        _id: result._id,
+        senderId: req.user.id,
         title,
         content,
         senderName: req.user.name,
-        timestamp: now.toISOString()
+        createdAt: now.toISOString()
       });
     }
 

@@ -35,9 +35,9 @@ async function logVisit(req, res) {
     }
 
     const numericAccuracy = Number(accuracy);
-    if (!Number.isFinite(numericAccuracy) || numericAccuracy > MAX_ACCEPTABLE_ACCURACY_METERS) {
+    if (!Number.isFinite(numericAccuracy)) {
       return res.status(400).json({
-        error: `GPS accuracy must be ${MAX_ACCEPTABLE_ACCURACY_METERS}m or better. Current accuracy: ${Number.isFinite(numericAccuracy) ? Math.round(numericAccuracy) : "unknown"}m.`
+        error: "GPS accuracy must be a valid number."
       });
     }
 

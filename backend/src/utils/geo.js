@@ -125,24 +125,8 @@ async function verifyLocationPayload({ latitude, longitude, accuracy, gpsTimesta
     }
   }
 
-  // 6. Static accuracy and zero-drift mock GPS check (accuracy in 1m-3m range with identical values)
-  if (accuracy >= 1 && accuracy <= 3 && prevPings && prevPings.length >= 2) {
-    let allConstant = true;
-    for (const pt of prevPings) {
-      if (
-        pt.latitude !== latitude ||
-        pt.longitude !== longitude ||
-        pt.accuracy !== accuracy
-      ) {
-        allConstant = false;
-        break;
-      }
-    }
-    if (allConstant) {
-      isSuspicious = true;
-      reasons.push("Static GPS precision signature (mock GPS suspected)");
-    }
-  }
+  // 6. Static accuracy and zero-drift mock GPS check
+  // Disabled to prevent false alarms on normal phones that report high-precision or cached GPS coordinates.
 
   return {
     isSuspicious,

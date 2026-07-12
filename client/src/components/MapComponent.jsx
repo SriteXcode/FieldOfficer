@@ -121,11 +121,12 @@ export default function MapComponent({
   markers = [], 
   polyline = [], 
   replayMarker = null,
-  fitBoundsTrigger = null 
+  fitBoundsTrigger = null,
+  onMarkerClick = null,
+  selectedMarker = null
 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
-  const infoWindowRef = useRef(null);
   
   const activeMarkers = useRef([]);
   const activePolyline = useRef(null);
@@ -181,13 +182,8 @@ export default function MapComponent({
       fullscreenControl: false,
     });
 
-    infoWindowRef.current = new google.maps.InfoWindow();
-
     return () => {
       // Cleanup
-      if (infoWindowRef.current) {
-        infoWindowRef.current.close();
-      }
       activeMarkers.current.forEach(m => m.setMap(null));
       activeMarkers.current = [];
       if (activePolyline.current) {
@@ -233,12 +229,18 @@ export default function MapComponent({
       let border = 'border-white';
       let label = '';
 
+      const isSelected = selectedMarker && 
+        selectedMarker.lat === m.lat && 
+        selectedMarker.lng === m.lng && 
+        selectedMarker.type === m.type &&
+        selectedMarker.time === m.time;
+
       if (m.type === 'checkIn') {
         iconColor = 'bg-emerald-500';
-        label = '🟢';
+        label = 'In';
       } else if (m.type === 'checkOut') {
         iconColor = 'bg-rose-500';
-        label = '🔴';
+        label = 'Out';
       } else if (m.type === 'live') {
         iconColor = 'bg-purple-600 animate-pulse';
         border = 'border-purple-300';
@@ -246,6 +248,10 @@ export default function MapComponent({
       } else {
         iconColor = 'bg-sky-500';
         label = m.index !== undefined ? `${m.index}` : '🔵';
+      }
+
+      if (isSelected) {
+        border = 'border-amber-400 ring-4 ring-amber-400/30 scale-125';
       }
 
       const div = document.createElement('div');
@@ -256,16 +262,6 @@ export default function MapComponent({
         </div>
       `;
 
-      const popupContent = `
-        <div class="p-2 text-slate-800 font-sans max-w-xs">
-          <h4 class="font-bold text-sm text-slate-900">${m.title || 'Stop'}</h4>
-          ${m.time ? `<p class="text-xs text-slate-500 mt-1">🕒 ${new Date(m.time).toLocaleTimeString()}</p>` : ''}
-          ${m.address ? `<p class="text-xs text-slate-600 mt-1">📍 ${m.address}</p>` : ''}
-          ${m.comment ? `<p class="text-xs italic text-slate-700 bg-slate-100 p-1.5 rounded mt-2">💬 "${m.comment}"</p>` : ''}
-          ${m.photo ? `<div class="mt-2"><img src="${m.photo}" class="w-full h-24 object-cover rounded shadow" alt="Proof" /></div>` : ''}
-        </div>
-      `;
-
       const markerLatLng = new google.maps.LatLng(m.lat, m.lng);
 
       const markerInstance = new HTMLMapMarker(
@@ -273,9 +269,9 @@ export default function MapComponent({
         mapInstance.current,
         div,
         () => {
-          infoWindowRef.current.setContent(popupContent);
-          infoWindowRef.current.setPosition(markerLatLng);
-          infoWindowRef.current.open(mapInstance.current);
+          if (onMarkerClick) {
+            onMarkerClick(m);
+          }
         }
       );
 
@@ -283,10 +279,8 @@ export default function MapComponent({
 
       if (m.openByDefault) {
         setTimeout(() => {
-          if (mapInstance.current && infoWindowRef.current) {
-            infoWindowRef.current.setContent(popupContent);
-            infoWindowRef.current.setPosition(markerLatLng);
-            infoWindowRef.current.open(mapInstance.current);
+          if (onMarkerClick) {
+            onMarkerClick(m);
           }
         }, 300);
       }
@@ -308,7 +302,7 @@ export default function MapComponent({
         map: mapInstance.current
       });
     }
-  }, [googleMapsLoaded, markers, polyline]);
+  }, [googleMapsLoaded, markers, polyline, selectedMarker, onMarkerClick]);
 
   // Update Replay moving marker
   useEffect(() => {
@@ -364,7 +358,8 @@ export default function MapComponent({
         });
       }
     }
-  }, [googleMapsLoaded, markers, polyline, fitBoundsTrigger]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleMapsLoaded, fitBoundsTrigger]);
 
   return (
     <div className="relative w-full h-full min-h-[400px]">

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 import { 
   LogOut, Users, MapPin, CheckCircle, Navigation, PlayCircle, Clock, 
   Search, ShieldAlert, Sparkles, Send, Settings, BookOpen, Download, AlertTriangle, 
-  MapIcon, Award, Eye, Calendar, X, Activity
+  MapIcon, Award, Eye, Calendar, X, Activity, Battery, Wifi, Camera, MessageSquare
 } from 'lucide-react';
 
 import MapComponent from '../components/MapComponent';
@@ -29,6 +29,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const [selectedFoAttendance, setSelectedFoAttendance] = useState(null); // Attendance record
   const [isFoModalOpen, setIsFoModalOpen] = useState(false); // Modal state
   const [replayCoord, setReplayCoord] = useState(null); // Active coordinate for replay
+  const [selectedMarkerDetails, setSelectedMarkerDetails] = useState(null); // Active stop details
 
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,15 @@ export default function SupervisorDashboard({ user, onLogout }) {
   const [announcements, setAnnouncements] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [analytics, setAnalytics] = useState({ officers: [], attendanceSplit: { present: 0, late: 0, pending: 0 } });
+  
+  // Chat & Socket states
+  const [socket, setSocket] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [activeTab, setActiveTab] = useState('timeline'); // 'timeline' or 'chat'
+  const [messageText, setMessageText] = useState('');
+  const [chatImage, setChatImage] = useState(null); // base64 string
+  const chatEndRef = useRef(null);
+  const prevSelectedFoRef = useRef(null);
   
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,6 +100,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
     };
     const socketUrl = getSocketUrl();
     const socket = io(socketUrl, { withCredentials: true });
+    setSocket(socket);
     socket.emit('join_room', `supervisor_${user.id}`);
 
     socket.on('location_update', (data) => {
@@ -133,15 +144,26 @@ export default function SupervisorDashboard({ user, onLogout }) {
               lng: data.longitude,
               type: 'live',
               title: `${data.name} (Live)`,
-              time: data.timestamp
+              time: data.timestamp,
+              battery: data.battery,
+              network: data.network,
+              accuracy: data.accuracy
             }
           ];
         });
+        setReplayCoord({ lat: data.latitude, lng: data.longitude });
       }
     });
 
     socket.on('new_announcement', (ann) => {
       setAnnouncements(prev => [ann, ...prev]);
+    });
+
+    socket.on('new_message', (msg) => {
+      setChatMessages(prev => {
+        if (prev.some(m => m._id === msg._id || m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
     });
 
     // Refresh live list for the current selected date every 30 seconds
@@ -176,12 +198,17 @@ export default function SupervisorDashboard({ user, onLogout }) {
     loadAllData();
   }, [selectedDate]);
 
-  // Handle selected FO changes or date changes
+  // Handle selected FO changes or date changes (Fetch history details once on selection/date change)
   useEffect(() => {
     if (selectedFO) {
       fetchFoHistoryDetails();
-    } else {
-      // No FO selected, show all checked in officers as live markers (filtered by state)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFO, selectedDate]);
+
+  // Handle live markers when no FO is selected (Runs on automatic refreshes and socket updates)
+  useEffect(() => {
+    if (!selectedFO) {
       const liveMarkers = officers
         .filter(fo => fo.lastLocation && (selectedState === 'All' || matchesState(fo.checkIn?.address) || matchesState(fo.lastLocationAddress)))
         .map(fo => ({
@@ -189,10 +216,16 @@ export default function SupervisorDashboard({ user, onLogout }) {
           lng: fo.lastLocation.lng,
           type: 'live',
           title: fo.name,
-          time: fo.lastSeen
+          time: fo.lastSeen,
+          battery: fo.battery,
+          network: fo.network,
+          status: fo.status,
+          userId: fo.userId,
+          foObject: fo
         }));
       setMapMarkers(liveMarkers);
       setMapPolyline([]);
+      setSelectedMarkerDetails(null);
     }
   }, [selectedFO, selectedState, officers]);
 
@@ -288,7 +321,9 @@ export default function SupervisorDashboard({ user, onLogout }) {
           type: 'checkIn',
           title: 'Shift Check-In',
           time: dayAtt.checkIn.time,
-          address: dayAtt.checkIn.address
+          address: dayAtt.checkIn.address,
+          battery: dayAtt.checkIn.battery,
+          network: dayAtt.checkIn.network
         });
         polyline.push([dayAtt.checkIn.latitude, dayAtt.checkIn.longitude]);
       }
@@ -304,7 +339,9 @@ export default function SupervisorDashboard({ user, onLogout }) {
           time: v.timestamp,
           address: v.detectedAddress,
           comment: v.comment,
-          photo: v.photo
+          photo: v.photo,
+          consumerName: v.consumerName,
+          consumerAddress: v.consumerAddress
         });
       });
 
@@ -320,7 +357,9 @@ export default function SupervisorDashboard({ user, onLogout }) {
           type: 'checkOut',
           title: 'Shift Check-Out',
           time: dayAtt.checkOut.time,
-          address: dayAtt.checkOut.address
+          address: dayAtt.checkOut.address,
+          battery: dayAtt.checkOut.battery,
+          network: dayAtt.checkOut.network
         });
         polyline.push([dayAtt.checkOut.latitude, dayAtt.checkOut.longitude]);
       }
@@ -328,16 +367,81 @@ export default function SupervisorDashboard({ user, onLogout }) {
       // Flag the last active marker to open its popup by default for immediate summary feedback
       if (markers.length > 0) {
         markers[markers.length - 1].openByDefault = true;
+        setSelectedMarkerDetails(markers[markers.length - 1]);
+      } else {
+        setSelectedMarkerDetails(null);
       }
 
       setMapMarkers(markers);
       setMapPolyline(polyline);
       setMapBoundsTrigger(prev => prev + 1); // trigger auto map zoom/fit
+
+      // Fetch chat history for this selected officer
+      try {
+        const chatRes = await axios.get(`/api/chat?userId=${selectedFO.userId}`);
+        setChatMessages(chatRes.data.messages || []);
+      } catch (err) {
+        console.error("Failed to load chat history", err);
+      }
     } catch (e) {
       console.error("Failed to load history metrics", e);
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  // Chat Room Management
+  useEffect(() => {
+    if (socket && selectedFO) {
+      if (prevSelectedFoRef.current && prevSelectedFoRef.current !== selectedFO.userId) {
+        socket.emit('leave_room', `chat_${prevSelectedFoRef.current}`);
+      }
+      socket.emit('join_room', `chat_${selectedFO.userId}`);
+      prevSelectedFoRef.current = selectedFO.userId;
+    }
+  }, [socket, selectedFO]);
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if ((!messageText.trim() && !chatImage) || !selectedFO) return;
+
+    try {
+      const payload = {
+        receiverId: selectedFO.userId,
+        content: messageText,
+        image: chatImage || ""
+      };
+
+      const res = await axios.post('/api/chat', payload);
+      const newMsg = res.data.chatMessage;
+
+      // Append locally to prevent waiting
+      setChatMessages(prev => {
+        if (prev.some(m => m._id === newMsg._id || m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+
+      setMessageText('');
+      setChatImage(null);
+    } catch (err) {
+      console.error("Failed to send chat message:", err);
+    }
+  };
+
+  const handleChatImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setChatImage(reader.result); // base64 encoding
+    };
+    reader.readAsDataURL(file);
   };
 
   // Broadcast announcements
@@ -603,7 +707,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
           </div>
 
           {/* Interactive Map View */}
-          <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-800 shadow relative min-h-[450px]">
+          <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-800 shadow relative flex flex-col space-y-4">
             {/* Header filters */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl mb-4 md:mb-0 md:absolute md:top-6 md:right-6 md:z-[1000] md:flex-row md:space-x-3 md:bg-slate-900/90 md:p-2.5 md:rounded-xl md:backdrop-blur md:shadow w-full md:w-auto">
               {/* Date selection picker */}
@@ -612,7 +716,10 @@ export default function SupervisorDashboard({ user, onLogout }) {
                 <input 
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setMapBoundsTrigger(prev => prev + 1);
+                  }}
                   className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer"
                 />
               </div>
@@ -622,8 +729,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
                 <MapIcon className="w-3.5 h-3.5 text-sky-400" />
                 <select
                   value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-slate-900"
+                  onChange={(e) => {
+                    setSelectedState(e.target.value);
+                    setMapBoundsTrigger(prev => prev + 1);
+                  }}
+                  className="bg-transparent text-xs text-slate-205 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-slate-900"
                 >
                   <option value="All" className="bg-slate-900 text-slate-200">All UP</option>
                   <option value="Lucknow" className="bg-slate-900 text-slate-200">Lucknow</option>
@@ -645,12 +755,154 @@ export default function SupervisorDashboard({ user, onLogout }) {
               </button>
             </div>
 
-            <MapComponent 
-              markers={mapMarkers} 
-              polyline={mapPolyline} 
-              replayMarker={replayCoord}
-              fitBoundsTrigger={mapBoundsTrigger}
-            />
+            <div className="w-full flex-grow min-h-[400px] rounded-2xl overflow-hidden relative">
+              <MapComponent 
+                markers={mapMarkers} 
+                polyline={mapPolyline} 
+                replayMarker={replayCoord}
+                fitBoundsTrigger={mapBoundsTrigger}
+                onMarkerClick={setSelectedMarkerDetails}
+                selectedMarker={selectedMarkerDetails}
+              />
+            </div>
+
+            {/* Clicked Marker Details Section */}
+            {selectedMarkerDetails && (
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl text-left space-y-3 animate-fadeIn relative">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Selected Stop Details
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
+                      selectedMarkerDetails.type === 'checkIn' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                      selectedMarkerDetails.type === 'checkOut' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                      selectedMarkerDetails.type === 'live' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                      'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                    }`}>
+                      {selectedMarkerDetails.type === 'checkIn' && 'Shift Check-In'}
+                      {selectedMarkerDetails.type === 'checkOut' && 'Shift Check-Out'}
+                      {selectedMarkerDetails.type === 'live' && 'Live Location'}
+                      {selectedMarkerDetails.type === 'stop' && `Stop ${selectedMarkerDetails.index}: Consumer Visit`}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedMarkerDetails(null)}
+                    className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left Column: Core Info */}
+                  <div className="space-y-2.5">
+                    <h4 className="text-sm font-bold text-slate-205 flex items-center space-x-1.5">
+                      <span>{selectedMarkerDetails.title}</span>
+                    </h4>
+                    
+                    <div className="space-y-1.5 text-xs text-slate-400">
+                      {selectedMarkerDetails.time && (
+                        <div className="flex items-center space-x-1.5">
+                          <Clock className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                          <span><strong>Timestamp:</strong> {new Date(selectedMarkerDetails.time).toLocaleTimeString()}</span>
+                        </div>
+                      )}
+
+                      {/* Displaying address */}
+                      {selectedMarkerDetails.address && (
+                        <div className="flex items-start space-x-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <span><strong>GPS Detected:</strong> {selectedMarkerDetails.address}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* If it's a stop, show target address too if present */}
+                      {selectedMarkerDetails.type === 'stop' && selectedMarkerDetails.consumerAddress && (
+                        <div className="flex items-start space-x-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <span><strong>Target Client Address:</strong> {selectedMarkerDetails.consumerAddress}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Photos & Telemetry */}
+                  <div className="space-y-2 flex flex-col justify-between">
+                    {/* Photo proof for stop */}
+                    {selectedMarkerDetails.type === 'stop' && selectedMarkerDetails.photo && (
+                      <div className="flex items-center space-x-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 flex-shrink-0 shadow">
+                          <img 
+                            src={selectedMarkerDetails.photo} 
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
+                            alt="Visit proof"
+                            onClick={() => window.open(selectedMarkerDetails.photo, '_blank')}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          <span className="font-bold text-slate-300 block mb-0.5">Photo Proof Attached</span>
+                          <a 
+                            href={selectedMarkerDetails.photo} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sky-400 hover:underline font-semibold"
+                          >
+                            View Full Resolution ↗
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Telemetry info for live / checkIn / checkOut */}
+                    {(selectedMarkerDetails.battery !== undefined || selectedMarkerDetails.network) && (
+                      <div className="grid grid-cols-2 gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-850 text-[10.5px]">
+                        {selectedMarkerDetails.battery !== undefined && (
+                          <div className="flex items-center space-x-1.5 text-slate-300">
+                            <Battery className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                            <span>Battery: <strong className={selectedMarkerDetails.battery < 20 ? 'text-rose-450' : 'text-emerald-400'}>{selectedMarkerDetails.battery}%</strong></span>
+                          </div>
+                        )}
+                        {selectedMarkerDetails.network && (
+                          <div className="flex items-center space-x-1.5 text-slate-300">
+                            <Wifi className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                            <span className="uppercase">Net: <strong>{selectedMarkerDetails.network}</strong></span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action button for live officer */}
+                    {selectedMarkerDetails.type === 'live' && selectedMarkerDetails.foObject && (
+                      <button
+                        onClick={() => {
+                          setSelectedFO(selectedMarkerDetails.foObject);
+                          setIsFoModalOpen(true);
+                        }}
+                        className="w-full py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg text-xs transition shadow-md flex items-center justify-center space-x-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Shift Activity Details</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comment block if present */}
+                {selectedMarkerDetails.comment && (
+                  <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-850 text-xs italic text-slate-300">
+                    <span className="font-bold text-[10px] uppercase text-slate-500 block not-italic mb-1">
+                      Comment Logged:
+                    </span>
+                    "{selectedMarkerDetails.comment}"
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -672,45 +924,180 @@ export default function SupervisorDashboard({ user, onLogout }) {
               />
             </div>
 
-            {/* Right: Visits Timeline details */}
-            <div className="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
-              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-                <MapIcon className="w-4.5 h-4.5 text-sky-400" />
-                <span>Consumer Visits Logs & Timeline ({selectedFoVisits.length})</span>
-              </h3>
+            {/* Right: Visits Timeline details / Chat */}
+            <div className="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col min-h-[450px]">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <div className="flex items-center space-x-4 flex-wrap">
+                  <button 
+                    onClick={() => setActiveTab('timeline')}
+                    className={`font-bold text-sm tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'timeline' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                  >
+                    <MapIcon className="w-4.5 h-4.5" />
+                    <span>Visits Timeline ({selectedFoVisits.length})</span>
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('chat')}
+                    className={`font-bold text-sm tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'chat' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                  >
+                    <MessageSquare className="w-4.5 h-4.5" />
+                    <span>Live Chat</span>
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedFO(null);
+                    setMapBoundsTrigger(prev => prev + 1);
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-305 hover:text-slate-200 rounded text-[10px] font-semibold border border-slate-700 transition"
+                >
+                  Clear Selection
+                </button>
+              </div>
 
-              <div className="overflow-y-auto max-h-[350px] space-y-4 pr-1">
-                {selectedFoVisits.map((v, idx) => (
-                  <div key={idx} className="flex space-x-3.5 text-left border-l-2 border-slate-800 pl-4 py-1 relative">
-                    <span className="absolute -left-[9px] top-1.5 w-4 h-4 bg-sky-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center shadow-md">
-                      {idx + 1}
-                    </span>
+              {activeTab === 'timeline' ? (
+                <div className="overflow-y-auto max-h-[350px] space-y-4 pr-1 flex-grow custom-scrollbar">
+                  {selectedFoVisits.map((v, idx) => {
+                    const isSelected = selectedMarkerDetails && 
+                      selectedMarkerDetails.type === 'stop' && 
+                      selectedMarkerDetails.index === idx + 1;
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => {
+                          setReplayCoord({ lat: v.location.latitude, lng: v.location.longitude });
+                          setSelectedMarkerDetails({
+                            lat: v.location.latitude,
+                            lng: v.location.longitude,
+                            type: 'stop',
+                            index: idx + 1,
+                            title: `Stop ${idx + 1}: ${v.consumerName}`,
+                            time: v.timestamp,
+                            address: v.detectedAddress,
+                            comment: v.comment,
+                            photo: v.photo,
+                            consumerName: v.consumerName,
+                            consumerAddress: v.consumerAddress
+                          });
+                        }}
+                        className={`flex space-x-3.5 text-left border-l-2 pl-4 py-2.5 relative cursor-pointer rounded-xl transition-all duration-150 ${
+                          isSelected 
+                            ? 'border-sky-500 bg-sky-950/20 shadow-inner' 
+                            : 'border-slate-850 hover:border-sky-500/50 hover:bg-slate-900/10'
+                        }`}
+                      >
+                        <span className={`absolute -left-[9.5px] top-3.5 w-4.5 h-4.5 rounded-full text-[9px] font-bold flex items-center justify-center shadow-md transition-colors ${
+                          isSelected ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {idx + 1}
+                        </span>
 
-                    <div className="flex-grow space-y-1">
-                      <div className="flex flex-wrap justify-between items-start gap-1">
-                        <h4 className="text-xs font-bold text-slate-200">{v.consumerName}</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
+                        <div className="flex-grow space-y-1">
+                          <div className="flex flex-wrap justify-between items-start gap-1">
+                            <h4 className={`text-xs font-bold transition-colors ${isSelected ? 'text-sky-400' : 'text-slate-200'}`}>{v.consumerName}</h4>
+                            <span className="text-[10px] text-slate-400 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">Target: {v.consumerAddress}</p>
+                          <p className="text-[10px] text-sky-400">GPS Detected: {v.detectedAddress}</p>
+                          {v.comment && (
+                            <p className="text-[10px] italic text-slate-350 bg-slate-905/40 p-2 border border-slate-850 rounded-lg mt-1.5">
+                              "{v.comment}"
+                            </p>
+                          )}
+                        </div>
+
+                        {v.photo && (
+                          <div className="flex-shrink-0 w-14 h-14 rounded-lg border border-slate-850 overflow-hidden shadow self-center">
+                            <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
+                          </div>
+                        )}
                       </div>
-                      <p className="text-[10px] text-slate-400">Target: {v.consumerAddress}</p>
-                      <p className="text-[10px] text-sky-400">GPS Detected: {v.detectedAddress}</p>
-                      {v.comment && (
-                        <p className="text-[10px] italic text-slate-300 bg-slate-900/40 p-2 border border-slate-850 rounded">
-                          "{v.comment}"
-                        </p>
-                      )}
-                    </div>
+                    );
+                  })}
+                  {selectedFoVisits.length === 0 && (
+                    <div className="text-xs text-slate-500 text-center py-12">No visits logged for this date.</div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col flex-grow min-h-[300px] justify-between">
+                  {/* Chat Messages */}
+                  <div className="flex-grow overflow-y-auto max-h-[280px] bg-slate-950/40 p-4 rounded-xl border border-slate-850 space-y-3 mb-4 custom-scrollbar">
+                    {chatMessages.map((msg, idx) => {
+                      const isSelf = msg.senderId === user.id || msg.senderId === user._id;
+                      return (
+                        <div key={idx} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 text-xs text-left ${
+                            isSelf 
+                              ? 'bg-sky-600 text-white rounded-tr-none' 
+                              : 'bg-slate-800 text-slate-200 rounded-tl-none'
+                          }`}>
+                            {msg.content && <p className="break-words leading-relaxed">{msg.content}</p>}
+                            {msg.image && (
+                              <div className="mt-2 rounded overflow-hidden max-w-[200px]">
+                                <img 
+                                  src={msg.image} 
+                                  className="w-full object-cover cursor-pointer max-h-[150px]" 
+                                  alt="Live share" 
+                                  onClick={() => window.open(msg.image, '_blank')}
+                                />
+                              </div>
+                            )}
+                            <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-200' : 'text-slate-400'}`}>
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {chatMessages.length === 0 && (
+                      <div className="text-xs text-slate-500 text-center py-12">No messages yet. Send a message to start chatting!</div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
 
-                    {v.photo && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded border border-slate-800 overflow-hidden shadow">
-                        <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
+                  {/* Input form */}
+                  <form onSubmit={handleSendMessage} className="space-y-3">
+                    {chatImage && (
+                      <div className="flex items-center space-x-2 bg-slate-900/60 p-2 rounded-xl border border-slate-850 w-fit">
+                        <div className="w-12 h-12 rounded overflow-hidden border border-slate-800 flex-shrink-0">
+                          <img src={chatImage} className="w-full h-full object-cover" alt="Upload preview" />
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setChatImage(null)}
+                          className="p-1 text-rose-450 hover:bg-slate-800 rounded transition"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
-                  </div>
-                ))}
-                {selectedFoVisits.length === 0 && (
-                  <div className="text-xs text-slate-500 text-center py-12">No visits logged for this date.</div>
-                )}
-              </div>
+
+                    <div className="flex items-center space-x-2">
+                      <label className="p-2.5 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-750 rounded-xl cursor-pointer transition flex-shrink-0" title="Attach Live Image">
+                        <Camera className="w-4.5 h-4.5" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleChatImageSelect} 
+                          className="hidden" 
+                        />
+                      </label>
+                      <input 
+                        type="text" 
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-grow bg-slate-850 border border-slate-750 text-slate-200 text-xs rounded-xl px-3.5 py-2.5 outline-none focus:border-sky-500 transition"
+                      />
+                      <button 
+                        type="submit"
+                        className="p-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition flex-shrink-0 shadow-lg shadow-sky-600/10"
+                      >
+                        <Send className="w-4.5 h-4.5" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -943,8 +1330,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       <input
                         type="date"
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="bg-slate-850 border border-slate-800 text-slate-200 text-[11px] rounded-lg px-2.5 py-1 outline-none focus:border-sky-500 transition font-mono"
+                        onChange={(e) => {
+                          setSelectedDate(e.target.value);
+                          setMapBoundsTrigger(prev => prev + 1);
+                        }}
+                        className="bg-slate-950 border border-slate-700 text-slate-100 font-bold text-[11.5px] rounded-lg px-2.5 py-1 outline-none focus:border-sky-500 transition font-mono cursor-pointer"
                       />
                     </div>
                   </div>
@@ -972,8 +1362,12 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       polyline={mapPolyline} 
                       replayMarker={replayCoord}
                       fitBoundsTrigger={mapBoundsTrigger}
+                      onMarkerClick={setSelectedMarkerDetails}
+                      selectedMarker={selectedMarkerDetails}
                     />
                   </div>
+
+
 
                   {/* Route Replay Player */}
                   <RouteReplay 
@@ -992,7 +1386,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <div className="space-y-1.5 max-h-[140px] overflow-y-auto bg-slate-950/40 p-3.5 rounded-2xl border border-slate-850">
                     {selectedFoHistory.map((pt, i) => (
                       <div key={i} className="flex justify-between text-[11px] text-slate-300 font-mono py-1 border-b border-slate-900/60 last:border-0">
-                        <span className="flex items-center gap-1.5 text-slate-400">
+                        <span className="flex items-center gap-1.5 text-slate-405">
                           <span className="w-2 h-2 rounded-full bg-sky-500/50" />
                           <span>Lat: {pt.latitude.toFixed(5)}, Lng: {pt.longitude.toFixed(5)}</span>
                         </span>
@@ -1014,43 +1408,69 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     <span>Logged Consumer Visits Timeline ({selectedFoVisits.length})</span>
                   </span>
                   <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
-                    {selectedFoVisits.map((v, idx) => (
-                      <div 
-                        key={idx} 
-                        onClick={() => {
-                          setReplayCoord({ lat: v.location.latitude, lng: v.location.longitude });
-                        }}
-                        className="flex items-start space-x-3.5 bg-slate-950/30 p-3.5 rounded-2xl border border-slate-800 hover:border-sky-500/50 hover:bg-slate-900/40 cursor-pointer transition relative"
-                      >
-                        <span className="w-5.5 h-5.5 bg-sky-600/15 border border-sky-500/20 text-sky-400 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-md flex-shrink-0">
-                          {idx + 1}
-                        </span>
-                        <div className="flex-grow space-y-1.5">
-                          <div className="flex flex-wrap justify-between items-start gap-1.5">
-                            <h4 className="text-[12px] font-bold text-slate-200">{v.consumerName}</h4>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
-                              🕒 {new Date(v.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-405 leading-relaxed">
-                            <span className="text-slate-500 font-semibold">Address:</span> {v.consumerAddress}
-                          </p>
-                          <p className="text-[11px] text-sky-400 leading-relaxed">
-                            <span className="text-slate-500 font-semibold">GPS:</span> {v.detectedAddress}
-                          </p>
-                          {v.comment && (
-                            <p className="text-[10px] italic text-slate-350 bg-slate-900/60 p-2.5 border border-slate-800 rounded-xl mt-2 leading-relaxed">
-                              "{v.comment}"
+                    {selectedFoVisits.map((v, idx) => {
+                      const isSelected = selectedMarkerDetails && 
+                        selectedMarkerDetails.type === 'stop' && 
+                        selectedMarkerDetails.index === idx + 1;
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => {
+                            setReplayCoord({ lat: v.location.latitude, lng: v.location.longitude });
+                            setSelectedMarkerDetails({
+                              lat: v.location.latitude,
+                              lng: v.location.longitude,
+                              type: 'stop',
+                              index: idx + 1,
+                              title: `Stop ${idx + 1}: ${v.consumerName}`,
+                              time: v.timestamp,
+                              address: v.detectedAddress,
+                              comment: v.comment,
+                              photo: v.photo,
+                              consumerName: v.consumerName,
+                              consumerAddress: v.consumerAddress
+                            });
+                          }}
+                          className={`flex items-start space-x-3.5 p-3.5 rounded-2xl border cursor-pointer transition relative ${
+                            isSelected 
+                              ? 'border-sky-500 bg-sky-950/25 shadow-inner' 
+                              : 'bg-slate-950/30 border-slate-800 hover:border-sky-500/50 hover:bg-slate-900/40'
+                          }`}
+                        >
+                          <span className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-md flex-shrink-0 border transition-all ${
+                            isSelected 
+                              ? 'bg-sky-600/20 border-sky-500 text-sky-400' 
+                              : 'bg-sky-600/15 border-sky-500/20 text-sky-400'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                          <div className="flex-grow space-y-1.5">
+                            <div className="flex flex-wrap justify-between items-start gap-1.5">
+                              <h4 className={`text-[12px] font-bold transition-colors ${isSelected ? 'text-sky-400' : 'text-slate-200'}`}>{v.consumerName}</h4>
+                              <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
+                                🕒 {new Date(v.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                              <span className="text-slate-500 font-semibold">Address:</span> {v.consumerAddress}
                             </p>
+                            <p className="text-[11px] text-sky-400 leading-relaxed">
+                              <span className="text-slate-500 font-semibold">GPS:</span> {v.detectedAddress}
+                            </p>
+                            {v.comment && (
+                              <p className="text-[10px] italic text-slate-350 bg-slate-900/60 p-2.5 border border-slate-800 rounded-xl mt-2 leading-relaxed">
+                                "{v.comment}"
+                              </p>
+                            )}
+                          </div>
+                          {v.photo && (
+                            <div className="w-16 h-16 rounded-xl border border-slate-800 overflow-hidden shadow flex-shrink-0 self-center">
+                              <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
+                            </div>
                           )}
                         </div>
-                        {v.photo && (
-                          <div className="w-16 h-16 rounded-xl border border-slate-800 overflow-hidden shadow flex-shrink-0 self-center">
-                            <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                     {selectedFoVisits.length === 0 && (
                       <div className="text-slate-500 text-xs italic py-8 text-center bg-slate-950/15 rounded-2xl border border-slate-900">
                         No visits recorded on this date.
@@ -1066,57 +1486,107 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     <span>Check-In & Check-Out Detail</span>
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div 
-                      onClick={() => {
-                        if (selectedFoAttendance?.checkIn) {
-                          setReplayCoord({ lat: selectedFoAttendance.checkIn.latitude, lng: selectedFoAttendance.checkIn.longitude });
-                        }
-                      }}
-                      className={`bg-slate-950/30 p-3.5 rounded-2xl border border-slate-850 space-y-2 text-left transition ${selectedFoAttendance?.checkIn ? 'cursor-pointer hover:border-sky-500/50 hover:bg-slate-900/40' : ''}`}
-                    >
-                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-In</span>
-                      {selectedFoAttendance?.checkIn ? (
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-emerald-400 block">
-                            🕒 {new Date(selectedFoAttendance.checkIn.time).toLocaleTimeString()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkIn.address}>
-                            📍 {selectedFoAttendance.checkIn.address}
-                          </span>
-                          <span className="text-[9px] text-slate-500 block">
-                            🔋 {selectedFoAttendance.checkIn.battery}% • 📡 {selectedFoAttendance.checkIn.network}
-                          </span>
+                    {/* Check-In */}
+                    {(() => {
+                      const isSelected = selectedMarkerDetails && selectedMarkerDetails.type === 'checkIn';
+                      return (
+                        <div 
+                          onClick={() => {
+                            if (selectedFoAttendance?.checkIn) {
+                              const cIn = selectedFoAttendance.checkIn;
+                              setReplayCoord({ lat: cIn.latitude, lng: cIn.longitude });
+                              setSelectedMarkerDetails({
+                                lat: cIn.latitude,
+                                lng: cIn.longitude,
+                                type: 'checkIn',
+                                title: 'Shift Check-In',
+                                time: cIn.time,
+                                address: cIn.address,
+                                battery: cIn.battery,
+                                network: cIn.network
+                              });
+                            }
+                          }}
+                          className={`p-3.5 rounded-2xl border space-y-2 text-left transition ${
+                            selectedFoAttendance?.checkIn 
+                              ? `cursor-pointer ${
+                                  isSelected 
+                                    ? 'border-emerald-500 bg-emerald-950/20' 
+                                    : 'border-slate-850 bg-slate-950/30 hover:border-emerald-500/50 hover:bg-slate-900/40'
+                                }`
+                              : 'border-slate-850 bg-slate-950/30'
+                          }`}
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-In</span>
+                          {selectedFoAttendance?.checkIn ? (
+                            <div className="space-y-1">
+                              <span className="text-xs font-bold text-emerald-400 block">
+                                🕒 {new Date(selectedFoAttendance.checkIn.time).toLocaleTimeString()}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkIn.address}>
+                                📍 {selectedFoAttendance.checkIn.address}
+                              </span>
+                              <span className="text-[9px] text-slate-500 block">
+                                🔋 {selectedFoAttendance.checkIn.battery}% • 📡 {selectedFoAttendance.checkIn.network}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 italic block py-2">No Check-in logged</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic block py-2">No Check-in logged</span>
-                      )}
-                    </div>
+                      );
+                    })()}
 
-                    <div 
-                      onClick={() => {
-                        if (selectedFoAttendance?.checkOut) {
-                          setReplayCoord({ lat: selectedFoAttendance.checkOut.latitude, lng: selectedFoAttendance.checkOut.longitude });
-                        }
-                      }}
-                      className={`bg-slate-950/30 p-3.5 rounded-2xl border border-slate-850 space-y-2 text-left transition ${selectedFoAttendance?.checkOut ? 'cursor-pointer hover:border-sky-500/50 hover:bg-slate-900/40' : ''}`}
-                    >
-                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-Out</span>
-                      {selectedFoAttendance?.checkOut ? (
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-rose-400 block">
-                            🕒 {new Date(selectedFoAttendance.checkOut.time).toLocaleTimeString()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkOut.address}>
-                            📍 {selectedFoAttendance.checkOut.address}
-                          </span>
-                          <span className="text-[9px] text-slate-500 block">
-                            🔋 {selectedFoAttendance.checkOut.battery}% • 📡 {selectedFoAttendance.checkOut.network}
-                          </span>
+                    {/* Check-Out */}
+                    {(() => {
+                      const isSelected = selectedMarkerDetails && selectedMarkerDetails.type === 'checkOut';
+                      return (
+                        <div 
+                          onClick={() => {
+                            if (selectedFoAttendance?.checkOut) {
+                              const cOut = selectedFoAttendance.checkOut;
+                              setReplayCoord({ lat: cOut.latitude, lng: cOut.longitude });
+                              setSelectedMarkerDetails({
+                                lat: cOut.latitude,
+                                lng: cOut.longitude,
+                                type: 'checkOut',
+                                title: 'Shift Check-Out',
+                                time: cOut.time,
+                                address: cOut.address,
+                                battery: cOut.battery,
+                                network: cOut.network
+                              });
+                            }
+                          }}
+                          className={`p-3.5 rounded-2xl border space-y-2 text-left transition ${
+                            selectedFoAttendance?.checkOut 
+                              ? `cursor-pointer ${
+                                  isSelected 
+                                    ? 'border-rose-500 bg-rose-950/20' 
+                                    : 'border-slate-850 bg-slate-950/30 hover:border-rose-500/50 hover:bg-slate-900/40'
+                                }`
+                              : 'border-slate-850 bg-slate-950/30'
+                          }`}
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Shift Check-Out</span>
+                          {selectedFoAttendance?.checkOut ? (
+                            <div className="space-y-1">
+                              <span className="text-xs font-bold text-rose-400 block">
+                                🕒 {new Date(selectedFoAttendance.checkOut.time).toLocaleTimeString()}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block leading-relaxed" title={selectedFoAttendance.checkOut.address}>
+                                📍 {selectedFoAttendance.checkOut.address}
+                              </span>
+                              <span className="text-[9px] text-slate-500 block">
+                                🔋 {selectedFoAttendance.checkOut.battery}% • 📡 {selectedFoAttendance.checkOut.network}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 italic block py-2">No Check-out logged</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic block py-2">No Check-out logged</span>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
