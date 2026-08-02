@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Clock, AlertOctagon } from 'lucide-react';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import FODashboard from './pages/FODashboard';
@@ -389,7 +390,7 @@ export default function App() {
 
   const getDynamicBasename = () => {
     const pathname = window.location.pathname;
-    const knownRoutes = ['/login', '/register', '/fo/dashboard', '/supervisor/dashboard', '/rm/dashboard', '/audit-logs'];
+    const knownRoutes = ['/login', '/register', '/dashboard', '/fo/dashboard', '/supervisor/dashboard', '/rm/dashboard', '/audit-logs'];
     for (const route of knownRoutes) {
       if (pathname.includes(route)) {
         const idx = pathname.indexOf(route);
@@ -433,17 +434,21 @@ export default function App() {
         <Routes>
           {/* Public Routes */}
           <Route 
+            path="/" 
+            element={<Home user={user} onLogout={handleLogout} />} 
+          />
+          <Route 
             path="/login" 
-            element={user ? <Navigate to="/" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
+            element={user ? <Navigate to="/dashboard" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
           />
           <Route 
             path="/register" 
-            element={user ? <Navigate to="/" replace /> : <Register />} 
+            element={user ? <Navigate to="/dashboard" replace /> : <Register />} 
           />
 
-          {/* Protected Root Redirection Route */}
+          {/* Protected Dashboard Redirection Route */}
           <Route 
-            path="/" 
+            path="/dashboard" 
             element={
               <PrivateRoute>
                 <DashboardRedirect />
