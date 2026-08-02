@@ -53,44 +53,48 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-4 relative overflow-hidden m-1">
+      {/* Background Ambient Cool Light FX */}
+      <div className="fixed top-10 left-1/3 w-[500px] h-[400px] bg-sky-200/40 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/3 w-[450px] h-[400px] bg-indigo-200/30 rounded-full blur-[150px] pointer-events-none -z-10" />
+
+      <div className="w-full max-w-md space-y-4 m-1">
         
         {/* Title Logo */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-500/10 border border-sky-500/25 rounded-2xl text-sky-400 mb-2">
-            <Compass className="w-8 h-8 animate-spin-slow" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-100">Recovery Force</h1>
-          <p className="text-xs text-slate-400">Join the Field Force & Management System</p>
+        <div className="text-center space-y-1.5">
+          <Link to="/" className="inline-flex items-center justify-center w-12 h-12 bg-sky-50 border border-sky-200 rounded-2xl text-sky-600 mb-1 shadow-sm hover:scale-105 transition-transform">
+            <Compass className="w-7 h-7 animate-spin-slow" />
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-sans">Recovery Force</h1>
+          <p className="text-xs text-slate-600">Join the Field Force & Management System</p>
         </div>
 
         {/* Form Container */}
-        <div className="glass-panel p-8 rounded-2xl border border-slate-800 shadow-2xl space-y-5">
-          <h2 className="text-lg font-bold text-slate-200">Create new account</h2>
+        <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white/90 shadow-xl space-y-4 m-1">
+          <h2 className="text-base font-bold text-slate-900 font-sans">Create new account</h2>
           
           {error && (
-            <div className="flex items-center space-x-2.5 p-3.5 bg-rose-500/10 border border-rose-500/25 rounded-xl text-rose-400 text-xs">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center space-x-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="flex items-center space-x-2.5 p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-400 text-xs">
-              <FileSignature className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center space-x-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs">
+              <FileSignature className="w-4 h-4 flex-shrink-0 text-emerald-600" />
               <span>{success}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             
             {/* Full Name Input */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400" htmlFor="name">Full Name</label>
+              <label className="text-xs font-semibold text-slate-700" htmlFor="name">Full Name</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                  <User className="w-4.5 h-4.5" />
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <User className="w-4 h-4" />
                 </span>
                 <input
                   id="name"
@@ -99,17 +103,17 @@ export default function Register() {
                   placeholder="e.g. John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 focus:ring-1 focus:ring-sky-600 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
             </div>
 
             {/* Username Input */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400" htmlFor="username">Username</label>
+              <label className="text-xs font-semibold text-slate-700" htmlFor="username">Username</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                  <User className="w-4.5 h-4.5" />
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <User className="w-4 h-4" />
                 </span>
                 <input
                   id="username"
@@ -118,17 +122,17 @@ export default function Register() {
                   placeholder="e.g. johndoe"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 focus:ring-1 focus:ring-sky-600 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
             </div>
 
             {/* Password Input */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400" htmlFor="password">Password</label>
+              <label className="text-xs font-semibold text-slate-700" htmlFor="password">Password</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                  <Lock className="w-4.5 h-4.5" />
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <Lock className="w-4 h-4" />
                 </span>
                 <input
                   id="password"
@@ -137,14 +141,14 @@ export default function Register() {
                   placeholder="Create password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 focus:ring-1 focus:ring-sky-600 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
             </div>
 
             {/* Role Select */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400" htmlFor="role">Role</label>
+              <label className="text-xs font-semibold text-slate-700" htmlFor="role">Role</label>
               <select
                 id="role"
                 value={role}
@@ -152,7 +156,7 @@ export default function Register() {
                   setRole(e.target.value);
                   setError('');
                 }}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 rounded-xl py-2.5 px-3 text-sm text-slate-100 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 focus:ring-1 focus:ring-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 outline-none transition"
               >
                 <option value="Field Officer">Field Officer</option>
                 <option value="Supervisor">Supervisor (Admin)</option>
@@ -163,14 +167,14 @@ export default function Register() {
             {role === 'Field Officer' && (
               <div className="space-y-1 animate-fadeIn">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-semibold text-slate-400" htmlFor="referralCode">Supervisor Referral Code</label>
+                  <label className="text-xs font-semibold text-slate-700" htmlFor="referralCode">Supervisor Referral Code</label>
                   <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
                     <HelpCircle className="w-3 h-3" /> Required
                   </span>
                 </div>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                    <Key className="w-4.5 h-4.5" />
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <Key className="w-4 h-4" />
                   </span>
                   <input
                     id="referralCode"
@@ -179,15 +183,15 @@ export default function Register() {
                     placeholder="REF-XXXXXX"
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                    className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 focus:ring-1 focus:ring-sky-600 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition font-mono"
                   />
                 </div>
               </div>
             )}
 
             {role === 'Supervisor' && (
-              <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
-                <span className="font-semibold text-slate-350 block">ℹ️ Supervisor Registration Details:</span>
+              <div className="p-2.5 bg-slate-100 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                <span className="font-semibold text-slate-800 block">ℹ️ Supervisor Registration Details:</span>
                 <p>Registering as a supervisor creates an administrative panel. You will receive a Referral Code to share with your Field Officers so they register under your account.</p>
               </div>
             )}
@@ -196,10 +200,10 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-sky-600/10 flex items-center justify-center space-x-2"
+              className="w-full py-2 bg-gradient-to-r from-sky-600 via-indigo-600 to-teal-600 hover:from-sky-500 hover:to-teal-500 disabled:opacity-70 text-white font-semibold text-xs rounded-xl transition shadow-md shadow-sky-600/20 flex items-center justify-center space-x-2"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <span>Register Account</span>
               )}
@@ -207,10 +211,10 @@ export default function Register() {
           </form>
 
           {/* Login link */}
-          <div className="text-center pt-2">
-            <p className="text-xs text-slate-400">
+          <div className="text-center pt-1">
+            <p className="text-xs text-slate-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-sky-400 hover:text-sky-300 font-semibold underline">
+              <Link to="/login" className="text-sky-600 hover:text-sky-700 font-semibold underline">
                 Sign in here
               </Link>
             </p>

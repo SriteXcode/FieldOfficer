@@ -976,39 +976,39 @@ export default function FODashboard({ user, onLogout }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-200">
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 text-slate-800">
         <div className="space-y-4 text-center">
-          <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm font-semibold tracking-wide text-slate-400">Loading your shift data...</p>
+          <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold tracking-wide text-sky-700 font-sans">Loading your shift data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-12">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-12 p-1">
       {/* Top Header */}
-      <header className="sticky top-0 bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center z-40">
+      <header className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-200 px-4 py-3 flex justify-between items-center z-40 rounded-xl m-1 shadow-sm">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center font-bold text-white text-sm">
+          <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center font-bold text-white text-sm shadow-sm">
             FO
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-100">{user.name}</h2>
-            <p className="text-[10px] text-slate-400">Field Officer Dashboard</p>
+            <h2 className="text-sm font-bold text-slate-900 font-sans">{user.name}</h2>
+            <p className="text-[10px] text-slate-500">Field Officer Dashboard</p>
           </div>
         </div>
 
         <div className="flex items-center space-x-3">
           {/* Connection Status Badge */}
           {online ? (
-            <span className="flex items-center space-x-1 text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <Wifi className="w-3 h-3" />
+            <span className="flex items-center space-x-1 text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+              <Wifi className="w-3 h-3 text-emerald-600" />
               <span>Online</span>
             </span>
           ) : (
-            <span className="flex items-center space-x-1 text-[10px] bg-rose-500/10 text-rose-400 font-semibold px-2 py-0.5 rounded-full border border-rose-500/20 animate-pulse">
-              <WifiOff className="w-3 h-3" />
+            <span className="flex items-center space-x-1 text-[10px] bg-rose-50 text-rose-700 font-semibold px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">
+              <WifiOff className="w-3 h-3 text-rose-600" />
               <span>Offline</span>
             </span>
           )}
@@ -1018,7 +1018,7 @@ export default function FODashboard({ user, onLogout }) {
             <button 
               onClick={triggerAutoSync}
               disabled={syncing || !online}
-              className={`flex items-center space-x-1 text-[10px] ${syncing ? 'bg-amber-500/20 text-amber-400' : 'bg-sky-500/20 text-sky-400'} font-semibold px-2 py-0.5 rounded-full border border-sky-500/20`}
+              className={`flex items-center space-x-1 text-[10px] ${syncing ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'} font-semibold px-2 py-0.5 rounded-full border border-sky-200`}
             >
               <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
               <span>{syncing ? syncProgress : `${queueSize} Pending`}</span>
@@ -1027,7 +1027,7 @@ export default function FODashboard({ user, onLogout }) {
 
           <button
             onClick={handleLogoutClick}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg transition"
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg transition"
             title="Log Out"
           >
             <LogOut className="w-4 h-4" />
@@ -1109,15 +1109,15 @@ export default function FODashboard({ user, onLogout }) {
         )}
 
         {/* 1. Daily Attendance Section */}
-        <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+        <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 m-1">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1">
-              <Clock className="w-4 h-4 text-sky-400" />
+            <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1 font-sans">
+              <Clock className="w-4 h-4 text-sky-600" />
               <span>Daily Shift Attendance</span>
             </h3>
             <div className="flex items-center space-x-2">
               {attendance && (
-                <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${attendance.status === 'Present' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : attendance.status === 'Late' ? 'bg-amber-500/10 text-amber-400 border-amber-500/25' : 'bg-sky-500/10 text-sky-400 border-sky-500/25'}`}>
+                <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${attendance.status === 'Present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : attendance.status === 'Late' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-sky-50 text-sky-700 border-sky-200'}`}>
                   {attendance.status}
                 </span>
               )}
@@ -1125,27 +1125,27 @@ export default function FODashboard({ user, onLogout }) {
           </div>
 
           {!checkedIn ? (
-            <div className="space-y-4 text-left py-2">
-              <p className="text-xs text-slate-400 text-center">Log your arrival to begin receiving location updates and recording consumer visits.</p>
+            <div className="space-y-3 text-left py-1">
+              <p className="text-xs text-slate-600 text-center">Log your arrival to begin receiving location updates and recording consumer visits.</p>
               
-              <div className="space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
+              <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Detected Location (Read-only)</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    telemetry.accuracy ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                    'bg-slate-800 text-slate-400 border-slate-700'
+                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    telemetry.accuracy ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
                     Accuracy: {telemetry.accuracy ? `±${Math.round(telemetry.accuracy)}m` : 'Calculating...'}
                   </span>
                 </div>
-                <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
+                <div className="text-xs text-slate-800 bg-white p-2.5 border border-slate-200 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed shadow-sm">
                   <span>📍 {detectedAddress}</span>
                   <button 
                     type="button" 
                     onClick={refreshDetectedLocation} 
-                    className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex-shrink-0 select-none cursor-pointer"
+                    className="text-[10px] text-sky-600 hover:text-sky-700 font-bold flex-shrink-0 select-none cursor-pointer"
                   >
                     Refresh
                   </button>
@@ -1155,49 +1155,49 @@ export default function FODashboard({ user, onLogout }) {
               <button
                 onClick={() => handleAttendance('checkIn')}
                 disabled={gpsLoading}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 text-white font-bold rounded-xl transition shadow-lg shadow-emerald-600/10 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 text-xs"
               >
                 {gpsLoading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <MapPin className="w-5 h-5" />
+                    <MapPin className="w-4 h-4" />
                     <span>Check In Shift</span>
                   </>
                 )}
               </button>
             </div>
           ) : !checkedOut ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-xs bg-slate-900/40 p-3 rounded-xl border border-slate-900">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500">Check In Time</span>
-                  <div className="font-semibold text-slate-200">{new Date(attendance.checkIn.time).toLocaleTimeString()}</div>
+                  <div className="font-semibold text-slate-900">{new Date(attendance.checkIn.time).toLocaleTimeString()}</div>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500">Start Address</span>
-                  <div className="font-semibold text-slate-200 truncate">{attendance.checkIn.address}</div>
+                  <div className="font-semibold text-slate-900 truncate">{attendance.checkIn.address}</div>
                 </div>
               </div>
 
-              <div className="text-left space-y-1 bg-slate-900/40 p-3 rounded-xl border border-slate-900">
+              <div className="text-left space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Current Detected Location (Read-only)</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    telemetry.accuracy ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                    'bg-slate-800 text-slate-400 border-slate-700'
+                    telemetry.accuracy && telemetry.accuracy <= 15 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    telemetry.accuracy && telemetry.accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    telemetry.accuracy ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
                     Accuracy: {telemetry.accuracy ? `±${Math.round(telemetry.accuracy)}m` : 'Calculating...'}
                   </span>
                 </div>
-                <div className="text-xs text-slate-350 bg-slate-950/40 p-2.5 border border-slate-800/60 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed">
+                <div className="text-xs text-slate-800 bg-white p-2.5 border border-slate-200 rounded font-semibold break-words flex justify-between items-start space-x-2 leading-relaxed shadow-sm">
                   <span>📍 {detectedAddress}</span>
                   <button 
                     type="button" 
                     onClick={refreshDetectedLocation} 
-                    className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex-shrink-0 select-none cursor-pointer"
+                    className="text-[10px] text-sky-600 hover:text-sky-700 font-bold flex-shrink-0 select-none cursor-pointer"
                   >
                     Refresh
                   </button>
@@ -1205,41 +1205,41 @@ export default function FODashboard({ user, onLogout }) {
               </div>
 
               {/* Background running warning banner */}
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[10px] text-amber-400 space-y-1 text-left">
-                <p className="font-bold flex items-center gap-1">⚠️ Keep App Active / Running</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[10px] text-amber-800 space-y-1 text-left">
+                <p className="font-bold flex items-center gap-1 text-amber-900">⚠️ Keep App Active / Running</p>
                 <p>For background tracking to continue, minimize the app/tab instead of closing it. For optimal results, ensure location permission is set to <strong>"Allow all the time"</strong> in your device settings.</p>
               </div>
               <button
                 onClick={() => handleAttendance('checkOut')}
                 disabled={gpsLoading}
-                className="w-full py-3 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-700 text-white font-bold rounded-xl transition shadow-lg shadow-rose-600/10 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-700 text-white font-bold rounded-xl transition shadow-md shadow-rose-600/20 flex items-center justify-center space-x-2 text-xs"
               >
                 {gpsLoading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <LogOut className="w-5 h-5" />
+                    <LogOut className="w-4 h-4" />
                     <span>Check Out Shift</span>
                   </>
                 )}
               </button>
             </div>
           ) : (
-            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-900 text-center space-y-3">
-              <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
-              <h4 className="font-bold text-slate-200">Shift Completed</h4>
-              <p className="text-xs text-slate-400">You have successfully checked out of today's shift. Total distance and hours have been summarized on the supervisor portal.</p>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center space-y-3">
+              <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto" />
+              <h4 className="font-bold text-slate-900 font-sans">Shift Completed</h4>
+              <p className="text-xs text-slate-600">You have successfully checked out of today's shift. Total distance and hours have been summarized on the supervisor portal.</p>
               
               <button
                 onClick={() => handleAttendance('checkIn')}
                 disabled={gpsLoading}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 text-white font-bold rounded-xl transition shadow-lg shadow-emerald-600/10 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 text-xs"
               >
                 {gpsLoading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <MapPin className="w-5 h-5" />
+                    <MapPin className="w-4 h-4" />
                     <span>Check In Again</span>
                   </>
                 )}
@@ -1250,82 +1250,82 @@ export default function FODashboard({ user, onLogout }) {
 
         {/* 2. Log Consumer Visit (Only visible when checked in and not checked out) */}
         {checkedIn && !checkedOut && (
-          <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-              <Compass className="w-4 h-4 text-sky-400" />
+          <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 m-1">
+            <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+              <Compass className="w-4 h-4 text-sky-600" />
               <span>Log Consumer Visit</span>
             </h3>
 
-            <form onSubmit={handleVisitSubmit} className="space-y-3.5">
+            <form onSubmit={handleVisitSubmit} className="space-y-3">
               {/* Consumer Name */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Consumer Name *</label>
+                <label className="text-[11px] font-bold text-slate-900">Consumer Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="Full name of consumer visited"
                   value={consumerName}
                   onChange={(e) => setConsumerName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
 
               {/* Phone */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Consumer Phone (Optional)</label>
+                <label className="text-[11px] font-bold text-slate-900">Consumer Phone (Optional)</label>
                 <input
                   type="text"
                   placeholder="Contact number"
                   value={consumerPhone}
                   onChange={(e) => setConsumerPhone(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
 
               {/* Consumer Address */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Consumer Target Address (Optional)</label>
+                <label className="text-[11px] font-bold text-slate-900">Consumer Target Address (Optional)</label>
                 <input
                   type="text"
                   placeholder="Address as listed on file"
                   value={consumerAddress}
                   onChange={(e) => setConsumerAddress(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
               </div>
 
               {/* Optional Comment */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Visit Summary Comment (Optional)</label>
+                <label className="text-[11px] font-bold text-slate-900">Visit Summary Comment (Optional)</label>
                 <textarea
                   rows="2"
                   placeholder="Add notes about consumer availability, recovery collections, etc."
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none transition resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition resize-none"
                 />
               </div>
 
               {/* Visit Proof Photo capture */}
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-400">Upload Photo Proof (Optional)</label>
+                <label className="text-[11px] font-bold text-slate-900">Upload Photo Proof (Optional)</label>
                 <div className="flex items-center space-x-3">
                   <button
                     type="button"
                     onClick={() => setCameraOpen(true)}
-                    className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 transition"
+                    className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 transition"
                   >
-                    <Camera className="w-4 h-4 text-sky-400" />
+                    <Camera className="w-4 h-4 text-sky-600" />
                     <span>Take Photo</span>
                   </button>
 
                   {photo && (
-                    <div className="relative w-12 h-12 rounded-lg border border-slate-700 overflow-hidden shadow">
+                    <div className="relative w-12 h-12 rounded-lg border border-slate-200 overflow-hidden shadow-sm">
                       <img src={photo} className="w-full h-full object-cover" alt="Captured proof" />
                       <button
                         type="button"
                         onClick={() => setPhoto('')}
-                        className="absolute top-0 right-0 bg-slate-950/80 text-rose-500 w-4 h-4 flex items-center justify-center text-[9px] rounded-bl font-bold"
+                        className="absolute top-0 right-0 bg-slate-900/80 text-rose-400 w-4 h-4 flex items-center justify-center text-[9px] rounded-bl font-bold"
                         title="Remove"
                       >
                         ×
@@ -1339,14 +1339,14 @@ export default function FODashboard({ user, onLogout }) {
               <button
                 type="submit"
                 disabled={submittingVisit}
-                className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-sky-600/10 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-sky-600/20 flex items-center justify-center space-x-2"
               >
                 {submittingVisit ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
                 ) : (
                   <>
-                    <Send className="w-4 h-4" />
-                    <span>Submit Logged Visit</span>
+                    <Send className="w-4 h-4 text-white" />
+                    <span className="text-white">Submit Logged Visit</span>
                   </>
                 )}
               </button>
@@ -1355,40 +1355,40 @@ export default function FODashboard({ user, onLogout }) {
         )}
 
         {/* 3. Team Broadcast Announcements */}
-        <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4 text-left">
-          <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-            <BookOpen className="w-4 h-4 text-sky-400" />
+        <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 text-left m-1">
+          <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+            <BookOpen className="w-4 h-4 text-sky-600" />
             <span>Team Announcements</span>
           </h3>
           <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
             {announcements.map((ann, idx) => (
-              <div key={idx} className="bg-slate-900/40 border border-slate-850 p-3.5 rounded-xl space-y-1">
+              <div key={idx} className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-1">
                 <div className="flex justify-between items-start gap-1">
-                  <h4 className="text-xs font-bold text-sky-400">{ann.title}</h4>
-                  <span className="text-[9px] text-slate-500 font-mono">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                  <h4 className="text-xs font-bold text-sky-700 font-sans">{ann.title}</h4>
+                  <span className="text-[9px] text-slate-900 font-mono font-semibold">{new Date(ann.createdAt).toLocaleDateString()}</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed break-words">{ann.content}</p>
-                <span className="text-[8px] text-slate-500 block text-right">
+                <p className="text-[11px] text-slate-900 leading-relaxed break-words font-medium">{ann.content}</p>
+                <span className="text-[8px] text-slate-900 block text-right font-semibold">
                   From: {ann.senderName || 'Supervisor'} • {new Date(ann.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))}
             {announcements.length === 0 && (
-              <p className="text-xs text-slate-500 text-center py-6">No announcements broadcasted yet.</p>
+              <p className="text-xs text-slate-900 text-center py-6 font-medium">No announcements broadcasted yet.</p>
             )}
           </div>
         </section>
 
         {/* 4. Live Chat with Supervisor */}
         {user.supervisorId && (
-          <section className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4 text-left flex flex-col min-h-[350px]">
-            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5 border-b border-slate-800 pb-2">
-              <MessageSquare className="w-4 h-4 text-sky-400" />
+          <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 text-left flex flex-col min-h-[350px] m-1">
+            <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 border-b border-slate-200 pb-2 font-sans">
+              <MessageSquare className="w-4 h-4 text-sky-600" />
               <span>Chat with Supervisor</span>
             </h3>
 
             {/* Chat Messages */}
-            <div className="flex-grow overflow-y-auto max-h-[220px] bg-slate-950/40 p-3.5 rounded-xl border border-slate-850 space-y-3 mb-4 custom-scrollbar">
+            <div className="flex-grow overflow-y-auto max-h-[220px] bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3 mb-3 custom-scrollbar">
               {chatMessages.map((msg, idx) => {
                 const selfId = user.id || user._id;
                 const isSelf = msg.senderId === selfId;
@@ -1397,7 +1397,7 @@ export default function FODashboard({ user, onLogout }) {
                     <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs text-left ${
                       isSelf 
                         ? 'bg-sky-600 text-white rounded-tr-none' 
-                        : 'bg-slate-800 text-slate-200 rounded-tl-none'
+                        : 'bg-slate-200 text-slate-900 rounded-tl-none font-medium'
                     }`}>
                       {msg.content && <p className="break-words leading-relaxed">{msg.content}</p>}
                       {msg.image && (
@@ -1410,7 +1410,7 @@ export default function FODashboard({ user, onLogout }) {
                           />
                         </div>
                       )}
-                      <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-200' : 'text-slate-500'}`}>
+                      <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-100' : 'text-slate-900 font-semibold'}`}>
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -1418,7 +1418,7 @@ export default function FODashboard({ user, onLogout }) {
                 );
               })}
               {chatMessages.length === 0 && (
-                <div className="text-xs text-slate-500 text-center py-8">No messages yet. Say hello to your supervisor!</div>
+                <div className="text-xs text-slate-900 text-center py-8 font-medium">No messages yet. Say hello to your supervisor!</div>
               )}
               <div ref={chatEndRef} />
             </div>
@@ -1426,14 +1426,14 @@ export default function FODashboard({ user, onLogout }) {
             {/* Message input */}
             <form onSubmit={handleSendMessage} className="space-y-2">
               {chatImage && (
-                <div className="flex items-center space-x-2 bg-slate-900/60 p-2 rounded-xl border border-slate-850 w-fit">
-                  <div className="w-10 h-10 rounded overflow-hidden border border-slate-800 flex-shrink-0">
+                <div className="flex items-center space-x-2 bg-slate-100 p-2 rounded-xl border border-slate-200 w-fit">
+                  <div className="w-10 h-10 rounded overflow-hidden border border-slate-200 flex-shrink-0">
                     <img src={chatImage} className="w-full h-full object-cover" alt="Upload preview" />
                   </div>
                   <button 
                     type="button" 
                     onClick={() => setChatImage(null)}
-                    className="p-1 text-rose-450 hover:bg-slate-800 rounded transition"
+                    className="p-1 text-rose-600 hover:bg-slate-200 rounded transition"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1441,7 +1441,7 @@ export default function FODashboard({ user, onLogout }) {
               )}
 
               <div className="flex items-center space-x-2">
-                <label className="p-2 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-250 border border-slate-750 rounded-lg cursor-pointer transition flex-shrink-0" title="Attach Live Image">
+                <label className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 rounded-lg cursor-pointer transition flex-shrink-0" title="Attach Live Image">
                   <Camera className="w-4 h-4" />
                   <input 
                     type="file" 
@@ -1455,13 +1455,13 @@ export default function FODashboard({ user, onLogout }) {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-grow bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition"
+                  className="flex-grow bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-lg px-3 py-2 outline-none focus:border-sky-600 transition placeholder-slate-400"
                 />
                 <button 
                   type="submit"
-                  className="p-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex-shrink-0 shadow-lg shadow-sky-600/10"
+                  className="p-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex-shrink-0 shadow-md"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 h-4 text-white" />
                 </button>
               </div>
             </form>
@@ -1469,21 +1469,21 @@ export default function FODashboard({ user, onLogout }) {
         )}
 
         {/* Telemetry info dashboard */}
-        <section className="grid grid-cols-3 gap-3 text-center text-xs">
-          <div className="bg-slate-900/40 border border-slate-800 p-2.5 rounded-xl text-slate-400 flex flex-col items-center justify-center space-y-1 shadow">
-            <Battery className="w-4.5 h-4.5 text-emerald-400" />
-            <span className="text-[10px] uppercase text-slate-500 tracking-wider">Battery</span>
-            <span className="font-semibold text-slate-200">{telemetry.battery}%</span>
+        <section className="grid grid-cols-3 gap-3 text-center text-xs m-1">
+          <div className="bg-white border border-slate-200 p-2.5 rounded-xl text-slate-900 flex flex-col items-center justify-center space-y-1 shadow-sm">
+            <Battery className="w-4.5 h-4.5 text-emerald-600" />
+            <span className="text-[10px] uppercase text-slate-900 font-bold tracking-wider">Battery</span>
+            <span className="font-bold text-slate-900">{telemetry.battery}%</span>
           </div>
-          <div className="bg-slate-900/40 border border-slate-800 p-2.5 rounded-xl text-slate-400 flex flex-col items-center justify-center space-y-1 shadow">
-            <Wifi className="w-4.5 h-4.5 text-sky-400" />
-            <span className="text-[10px] uppercase text-slate-500 tracking-wider">Network</span>
-            <span className="font-semibold text-slate-200 uppercase">{telemetry.network}</span>
+          <div className="bg-white border border-slate-200 p-2.5 rounded-xl text-slate-900 flex flex-col items-center justify-center space-y-1 shadow-sm">
+            <Wifi className="w-4.5 h-4.5 text-sky-600" />
+            <span className="text-[10px] uppercase text-slate-900 font-bold tracking-wider">Network</span>
+            <span className="font-bold text-slate-900 uppercase">{telemetry.network}</span>
           </div>
-          <div className="bg-slate-900/40 border border-slate-800 p-2.5 rounded-xl text-slate-400 flex flex-col items-center justify-center space-y-1 shadow">
-            <MapPin className="w-4.5 h-4.5 text-amber-400" />
-            <span className="text-[10px] uppercase text-slate-500 tracking-wider">GPS Acc.</span>
-            <span className="font-semibold text-slate-200">±{telemetry.accuracy ? Math.round(telemetry.accuracy) : '--'}m</span>
+          <div className="bg-white border border-slate-200 p-2.5 rounded-xl text-slate-900 flex flex-col items-center justify-center space-y-1 shadow-sm">
+            <MapPin className="w-4.5 h-4.5 text-amber-600" />
+            <span className="text-[10px] uppercase text-slate-900 font-bold tracking-wider">GPS Acc.</span>
+            <span className="font-bold text-slate-900">±{telemetry.accuracy ? Math.round(telemetry.accuracy) : '--'}m</span>
           </div>
         </section>
 

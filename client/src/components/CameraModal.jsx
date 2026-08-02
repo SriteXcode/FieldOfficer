@@ -112,29 +112,29 @@ export default function CameraModal({ isOpen, onClose, onCapture }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-50 p-4 backdrop-blur-md">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-slate-900">
         
         {/* Header */}
-        <div className="flex justify-between items-center px-4 py-3 bg-slate-850 border-b border-slate-850">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-            <Video className="w-4 h-4 text-sky-400" />
+        <div className="flex justify-between items-center px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 font-sans">
+            <Video className="w-4 h-4 text-sky-600" />
             <span>Camera Viewfinder</span>
           </span>
           <button 
             onClick={onClose} 
-            className="p-1.5 text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-lg transition"
+            className="p-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Viewfinder Viewport */}
-        <div className="relative flex-grow bg-slate-950 flex items-center justify-center min-h-[300px] overflow-hidden">
+        <div className="relative flex-grow bg-slate-900 flex items-center justify-center min-h-[300px] overflow-hidden">
           {error ? (
             <div className="p-6 text-center text-xs text-rose-400 font-semibold space-y-1">
               <p>⚠️ {error}</p>
-              <p className="text-[10px] text-slate-500 font-normal">Please check browser permission toggles or connect a camera hardware.</p>
+              <p className="text-[10px] text-slate-300 font-normal">Please check browser permission toggles or connect a camera hardware.</p>
             </div>
           ) : (
             <video
@@ -151,11 +151,11 @@ export default function CameraModal({ isOpen, onClose, onCapture }) {
         </div>
 
         {/* Action Controls Footer */}
-        <div className="p-4 bg-slate-850 border-t border-slate-850 flex items-center justify-around">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-around">
           {/* Mirror toggle */}
           <button
             onClick={() => setMirrored(!mirrored)}
-            className={`p-3 rounded-full transition ${mirrored ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
+            className={`p-3 rounded-full transition ${mirrored ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'}`}
             title="Mirror image"
             disabled={!!error}
           >
@@ -165,18 +165,18 @@ export default function CameraModal({ isOpen, onClose, onCapture }) {
           {/* Capture Trigger */}
           <button
             onClick={capturePhoto}
-            className="p-4.5 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-full transition shadow-lg shadow-sky-600/10 flex items-center justify-center transform active:scale-95"
+            className="p-4 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-full transition shadow-lg shadow-sky-600/20 flex items-center justify-center transform active:scale-95"
             title="Take Photo"
             disabled={!!error}
           >
-            <Camera className="w-7 h-7" />
+            <Camera className="w-6 h-6 text-white" />
           </button>
 
           {/* Switch Camera */}
           <button
             onClick={switchCamera}
             disabled={devices.length < 2 || !!error}
-            className="p-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-700 text-slate-400 hover:text-slate-200 rounded-full transition"
+            className="p-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-full transition"
             title="Switch Camera (Front/Rear)"
           >
             <RotateCw className="w-5 h-5" />

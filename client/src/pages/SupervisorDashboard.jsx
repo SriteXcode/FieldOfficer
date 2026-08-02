@@ -532,114 +532,114 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-200">
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 text-slate-800">
         <div className="space-y-4 text-center">
-          <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm font-semibold tracking-wide text-slate-400">Loading Recovery Supervisor Dashboard...</p>
+          <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold tracking-wide text-sky-700 font-sans">Loading Recovery Supervisor Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20 p-1">
       
       {/* Top Header */}
-      <header className="sticky top-0 bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 sm:px-6 py-4 flex justify-between items-center z-40">
+      <header className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3 flex justify-between items-center z-40 rounded-xl m-1 shadow-sm">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-600/10 border border-sky-500/25 flex items-center justify-center font-extrabold text-sky-400 text-lg shadow-inner flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center font-extrabold text-sky-600 text-base shadow-sm flex-shrink-0">
             RF
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100 flex flex-wrap items-center gap-1.5">
+            <h2 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-1.5 font-sans">
               <span>Recovery Admin Portal</span>
               {user.referralCode && (
-                <span className="md:hidden text-[9px] font-bold text-sky-400 bg-sky-950/40 border border-sky-850 px-1.5 py-0.5 rounded font-mono">
+                <span className="md:hidden text-[9px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded font-mono">
                   Ref: {user.referralCode}
                 </span>
               )}
             </h2>
-            <p className="text-xs text-slate-400">Supervisor Dashboard</p>
+            <p className="text-xs text-slate-500">Supervisor Dashboard</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           
           {/* Widget customizer */}
           <DashboardWidgets onWidgetsChange={handleWidgetsChange} />
 
           {/* Referral Code box */}
           {user.referralCode && (
-            <div className="hidden md:flex flex-col text-right px-3 py-1 bg-slate-800/40 border border-slate-700/50 rounded-xl font-mono text-xs">
+            <div className="hidden md:flex flex-col text-right px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl font-mono text-xs">
               <span className="text-[9px] text-slate-500 uppercase font-semibold">Your Referral Code</span>
-              <span className="font-bold text-sky-400">{user.referralCode}</span>
+              <span className="font-bold text-sky-700">{user.referralCode}</span>
             </div>
           )}
 
           <button
             onClick={onLogout}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded-xl transition"
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl transition"
             title="Log Out"
           >
-            <LogOut className="w-4.5 h-4.5" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
       {/* Main Grid Workspace */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 space-y-6 m-1">
         
         {/* Widget 1: Statistics Summary */}
         {activeWidgets.stats && (
-          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-3 m-1">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Officers</span>
-              <div className="text-2xl font-extrabold text-slate-200 flex items-center justify-between">
+              <div className="text-2xl font-extrabold text-slate-900 flex items-center justify-between">
                 <span>{totalOfficers}</span>
-                <Users className="w-6 h-6 text-slate-650" />
+                <Users className="w-5 h-5 text-slate-500" />
               </div>
             </div>
-            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Online / Active</span>
-              <div className="text-2xl font-extrabold text-sky-400 flex items-center justify-between">
+              <div className="text-2xl font-extrabold text-sky-600 flex items-center justify-between">
                 <span>{activeRouteCount}</span>
                 <div className="w-2.5 h-2.5 bg-sky-500 rounded-full animate-ping" />
               </div>
             </div>
-            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Checked In</span>
-              <div className="text-2xl font-extrabold text-emerald-400 flex items-center justify-between">
+              <div className="text-2xl font-extrabold text-emerald-600 flex items-center justify-between">
                 <span>{checkedInCount}</span>
-                <CheckCircle className="w-6 h-6 text-emerald-500/20" />
+                <CheckCircle className="w-5 h-5 text-emerald-500" />
               </div>
             </div>
-            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Distance Covered</span>
-              <div className="text-2xl font-extrabold text-amber-400 flex items-center justify-between">
+              <div className="text-2xl font-extrabold text-amber-600 flex items-center justify-between">
                 <span>{totalDistance.toFixed(3)} km</span>
-                <Navigation className="w-6 h-6 text-amber-500/20" />
+                <Navigation className="w-5 h-5 text-amber-500" />
               </div>
             </div>
-            <div className="glass-panel p-4.5 rounded-2xl border border-slate-800 shadow space-y-1 col-span-2 md:col-span-1">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-1 col-span-2 md:col-span-1">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Late Check-ins</span>
-              <div className="text-2xl font-extrabold text-rose-500 flex items-center justify-between">
+              <div className="text-2xl font-extrabold text-rose-600 flex items-center justify-between">
                 <span>{lateCheckins}</span>
-                <Clock className="w-6 h-6 text-rose-500/20" />
+                <Clock className="w-5 h-5 text-rose-500" />
               </div>
             </div>
           </section>
         )}
 
         {/* Live Map Panel Grid */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 m-1">
           
           {/* Officers Sidebar Directory */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col space-y-4 max-h-[550px]">
+          <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col space-y-3 max-h-[550px] m-1">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-sm uppercase tracking-wide text-slate-200">Field Officers Shift</h3>
+              <h3 className="font-bold text-xs uppercase tracking-wide text-slate-900 font-sans">Field Officers Shift</h3>
               <button 
                 onClick={fetchLiveOfficers}
-                className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold"
+                className="text-[10px] text-sky-600 hover:text-sky-700 font-semibold"
               >
                 Refresh
               </button>
@@ -647,7 +647,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
             {/* Search */}
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                 <Search className="w-4 h-4" />
               </span>
               <input
@@ -655,7 +655,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                 placeholder="Search by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-sky-500 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
               />
             </div>
 
@@ -670,11 +670,11 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       setSelectedFO(fo);
                       setIsFoModalOpen(true);
                     }}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-600/10 border-b border-sky-500 shadow-inner' : 'bg-slate-900/35 border-slate-850 hover:bg-slate-850'}`}
+                    className={`p-3 rounded-xl border transition cursor-pointer text-left flex items-center justify-between ${isActive ? 'bg-sky-50 border-sky-300 shadow-sm' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center space-x-1.5">
-                        <span className="text-xs font-bold text-slate-200">{fo.name}</span>
+                        <span className="text-xs font-bold text-slate-900 font-sans">{fo.name}</span>
                         {fo.checkedIn && !fo.checkedOut && (
                           <span 
                             className={`w-2 h-2 rounded-full animate-pulse ${isOnline(fo) ? 'bg-emerald-500' : 'bg-amber-500'}`} 
@@ -682,7 +682,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                           />
                         )}
                       </div>
-                      <div className="text-[10px] text-slate-400 flex items-center space-x-2">
+                      <div className="text-[10px] text-slate-500 flex items-center space-x-2">
                         <span>
                           {fo.status}
                           {fo.status === 'Late' && fo.lateMinutes > 0 && ` (by ${fo.lateMinutes} mins)`}
@@ -693,7 +693,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div className="text-right space-y-1 text-[10px] text-slate-500">
+                    <div className="text-right space-y-1 text-[10px] text-slate-500 font-mono">
                       <div>{Number(fo.distanceCovered || 0).toFixed(3)} km</div>
                       <div>{fo.battery ? `🔋 ${fo.battery}%` : ''}</div>
                     </div>
@@ -707,12 +707,12 @@ export default function SupervisorDashboard({ user, onLogout }) {
           </div>
 
           {/* Interactive Map View */}
-          <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-800 shadow relative flex flex-col space-y-4">
+          <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm relative flex flex-col space-y-3 m-1">
             {/* Header filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl mb-4 md:mb-0 md:absolute md:top-6 md:right-6 md:z-[1000] md:flex-row md:space-x-3 md:bg-slate-900/90 md:p-2.5 md:rounded-xl md:backdrop-blur md:shadow w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white border border-slate-200 p-2.5 rounded-2xl mb-4 md:mb-0 md:absolute md:top-6 md:right-6 md:z-[1000] md:flex-row md:space-x-3 md:bg-white/90 md:p-2.5 md:rounded-xl md:backdrop-blur md:shadow-md w-full md:w-auto">
               {/* Date selection picker */}
               <div className="flex items-center space-x-1">
-                <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                <Calendar className="w-3.5 h-3.5 text-sky-600" />
                 <input 
                   type="date"
                   value={selectedDate}
@@ -720,42 +720,42 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     setSelectedDate(e.target.value);
                     setMapBoundsTrigger(prev => prev + 1);
                   }}
-                  className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none border-none cursor-pointer"
+                  className="bg-transparent text-xs text-slate-800 font-semibold focus:outline-none border-none cursor-pointer"
                 />
               </div>
 
               {/* State Filter dropdown */}
-              <div className="flex items-center space-x-1 border-l border-slate-800 pl-3">
-                <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+              <div className="flex items-center space-x-1 border-l border-slate-200 pl-3">
+                <MapIcon className="w-3.5 h-3.5 text-sky-600" />
                 <select
                   value={selectedState}
                   onChange={(e) => {
                     setSelectedState(e.target.value);
                     setMapBoundsTrigger(prev => prev + 1);
                   }}
-                  className="bg-transparent text-xs text-slate-205 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-slate-900"
+                  className="bg-transparent text-xs text-slate-800 font-semibold focus:outline-none border-none cursor-pointer pr-4 bg-white"
                 >
-                  <option value="All" className="bg-slate-900 text-slate-200">All UP</option>
-                  <option value="Lucknow" className="bg-slate-900 text-slate-200">Lucknow</option>
-                  <option value="Kanpur" className="bg-slate-900 text-slate-200">Kanpur</option>
-                  <option value="Noida" className="bg-slate-900 text-slate-200">Noida / G. Noida</option>
-                  <option value="Varanasi" className="bg-slate-900 text-slate-200">Varanasi</option>
-                  <option value="Bareilly" className="bg-slate-900 text-slate-200">Bareilly</option>
-                  <option value="Aliganj" className="bg-slate-900 text-slate-200">Aliganj Area</option>
+                  <option value="All" className="bg-white text-slate-900">All UP</option>
+                  <option value="Lucknow" className="bg-white text-slate-900">Lucknow</option>
+                  <option value="Kanpur" className="bg-white text-slate-900">Kanpur</option>
+                  <option value="Noida" className="bg-white text-slate-900">Noida / G. Noida</option>
+                  <option value="Varanasi" className="bg-white text-slate-900">Varanasi</option>
+                  <option value="Bareilly" className="bg-white text-slate-900">Bareilly</option>
+                  <option value="Aliganj" className="bg-white text-slate-900">Aliganj Area</option>
                 </select>
               </div>
 
               {/* CSV export */}
               <button
                 onClick={handleExportCSV}
-                className="flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700 transition"
+                className="flex items-center space-x-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold border border-slate-200 transition"
               >
-                <Download className="w-3 h-3 text-sky-400" />
+                <Download className="w-3 h-3 text-sky-600" />
                 <span>Export Shift CSV</span>
               </button>
             </div>
 
-            <div className="w-full flex-grow min-h-[400px] rounded-2xl overflow-hidden relative">
+            <div className="w-full flex-grow min-h-[400px] rounded-2xl overflow-hidden relative border border-slate-200">
               <MapComponent 
                 markers={mapMarkers} 
                 polyline={mapPolyline} 
@@ -768,17 +768,17 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
             {/* Clicked Marker Details Section */}
             {selectedMarkerDetails && (
-              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl text-left space-y-3 animate-fadeIn relative">
-                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+              <div className="bg-white border border-slate-200 p-4 rounded-2xl text-left space-y-3 animate-fadeIn relative shadow-lg text-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                       Selected Stop Details
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
-                      selectedMarkerDetails.type === 'checkIn' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      selectedMarkerDetails.type === 'checkOut' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                      selectedMarkerDetails.type === 'live' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
-                      'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                      selectedMarkerDetails.type === 'checkIn' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      selectedMarkerDetails.type === 'checkOut' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                      selectedMarkerDetails.type === 'live' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                      'bg-sky-50 text-sky-700 border border-sky-200'
                     }`}>
                       {selectedMarkerDetails.type === 'checkIn' && 'Shift Check-In'}
                       {selectedMarkerDetails.type === 'checkOut' && 'Shift Check-Out'}
@@ -788,7 +788,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   </div>
                   <button 
                     onClick={() => setSelectedMarkerDetails(null)}
-                    className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition"
+                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -908,12 +908,12 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
         {/* Selected Field Officer detailed breakdown (Replay + Visits) */}
         {selectedFO && (
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn relative">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fadeIn relative m-1">
             
             {/* Left: Route Replay player */}
-            <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
-              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-                <PlayCircle className="w-4.5 h-4.5 text-sky-400" />
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 m-1">
+              <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+                <PlayCircle className="w-4 h-4 text-sky-600" />
                 <span>Route Replay: {selectedFO.name}</span>
               </h3>
               
@@ -925,21 +925,21 @@ export default function SupervisorDashboard({ user, onLogout }) {
             </div>
 
             {/* Right: Visits Timeline details / Chat */}
-            <div className="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col min-h-[450px]">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+            <div className="lg:col-span-2 glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col min-h-[450px] m-1">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-3">
                 <div className="flex items-center space-x-4 flex-wrap">
                   <button 
                     onClick={() => setActiveTab('timeline')}
-                    className={`font-bold text-sm tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'timeline' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                    className={`font-bold text-xs tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'timeline' ? 'border-sky-600 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
                   >
-                    <MapIcon className="w-4.5 h-4.5" />
+                    <MapIcon className="w-4 h-4" />
                     <span>Visits Timeline ({selectedFoVisits.length})</span>
                   </button>
                   <button 
                     onClick={() => setActiveTab('chat')}
-                    className={`font-bold text-sm tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'chat' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                    className={`font-bold text-xs tracking-wide uppercase flex items-center space-x-1.5 pb-1 border-b-2 transition ${activeTab === 'chat' ? 'border-sky-600 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
                   >
-                    <MessageSquare className="w-4.5 h-4.5" />
+                    <MessageSquare className="w-4 h-4" />
                     <span>Live Chat</span>
                   </button>
                 </div>
@@ -948,7 +948,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     setSelectedFO(null);
                     setMapBoundsTrigger(prev => prev + 1);
                   }}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-305 hover:text-slate-200 rounded text-[10px] font-semibold border border-slate-700 transition"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded text-[10px] font-semibold border border-slate-200 transition"
                 >
                   Clear Selection
                 </button>
@@ -993,20 +993,20 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
                         <div className="flex-grow space-y-1">
                           <div className="flex flex-wrap justify-between items-start gap-1">
-                            <h4 className={`text-xs font-bold transition-colors ${isSelected ? 'text-sky-400' : 'text-slate-200'}`}>{v.consumerName}</h4>
-                            <span className="text-[10px] text-slate-400 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
+                            <h4 className={`text-xs font-bold transition-colors ${isSelected ? 'text-sky-600' : 'text-slate-900'}`}>{v.consumerName}</h4>
+                            <span className="text-[10px] text-slate-900 font-mono">{new Date(v.timestamp).toLocaleTimeString()}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400">Target: {v.consumerAddress}</p>
-                          <p className="text-[10px] text-sky-400">GPS Detected: {v.detectedAddress}</p>
+                          <p className="text-[10px] text-slate-900">Target: {v.consumerAddress}</p>
+                          <p className="text-[10px] text-sky-700">GPS Detected: {v.detectedAddress}</p>
                           {v.comment && (
-                            <p className="text-[10px] italic text-slate-350 bg-slate-905/40 p-2 border border-slate-850 rounded-lg mt-1.5">
+                            <p className="text-[10px] italic text-slate-900 bg-slate-100 p-2 border border-slate-200 rounded-lg mt-1.5">
                               "{v.comment}"
                             </p>
                           )}
                         </div>
 
                         {v.photo && (
-                          <div className="flex-shrink-0 w-14 h-14 rounded-lg border border-slate-850 overflow-hidden shadow self-center">
+                          <div className="flex-shrink-0 w-14 h-14 rounded-lg border border-slate-200 overflow-hidden shadow-sm self-center">
                             <img src={v.photo} className="w-full h-full object-cover" alt="Visit proof" />
                           </div>
                         )}
@@ -1014,13 +1014,13 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     );
                   })}
                   {selectedFoVisits.length === 0 && (
-                    <div className="text-xs text-slate-500 text-center py-12">No visits logged for this date.</div>
+                    <div className="text-xs text-slate-900 text-center py-12">No visits logged for this date.</div>
                   )}
                 </div>
               ) : (
                 <div className="flex flex-col flex-grow min-h-[300px] justify-between">
                   {/* Chat Messages */}
-                  <div className="flex-grow overflow-y-auto max-h-[280px] bg-slate-950/40 p-4 rounded-xl border border-slate-850 space-y-3 mb-4 custom-scrollbar">
+                  <div className="flex-grow overflow-y-auto max-h-[280px] bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 mb-4 custom-scrollbar">
                     {chatMessages.map((msg, idx) => {
                       const isSelf = msg.senderId === user.id || msg.senderId === user._id;
                       return (
@@ -1028,7 +1028,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                           <div className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 text-xs text-left ${
                             isSelf 
                               ? 'bg-sky-600 text-white rounded-tr-none' 
-                              : 'bg-slate-800 text-slate-200 rounded-tl-none'
+                              : 'bg-slate-200 text-slate-900 rounded-tl-none font-medium'
                           }`}>
                             {msg.content && <p className="break-words leading-relaxed">{msg.content}</p>}
                             {msg.image && (
@@ -1041,7 +1041,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                                 />
                               </div>
                             )}
-                            <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-200' : 'text-slate-400'}`}>
+                            <span className={`text-[8px] block mt-1 text-right ${isSelf ? 'text-sky-100' : 'text-slate-900'}`}>
                               {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -1049,7 +1049,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       );
                     })}
                     {chatMessages.length === 0 && (
-                      <div className="text-xs text-slate-500 text-center py-12">No messages yet. Send a message to start chatting!</div>
+                      <div className="text-xs text-slate-900 text-center py-12 font-medium">No messages yet. Send a message to start chatting!</div>
                     )}
                     <div ref={chatEndRef} />
                   </div>
@@ -1057,14 +1057,14 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   {/* Input form */}
                   <form onSubmit={handleSendMessage} className="space-y-3">
                     {chatImage && (
-                      <div className="flex items-center space-x-2 bg-slate-900/60 p-2 rounded-xl border border-slate-850 w-fit">
-                        <div className="w-12 h-12 rounded overflow-hidden border border-slate-800 flex-shrink-0">
+                      <div className="flex items-center space-x-2 bg-slate-100 p-2 rounded-xl border border-slate-200 w-fit">
+                        <div className="w-12 h-12 rounded overflow-hidden border border-slate-200 flex-shrink-0">
                           <img src={chatImage} className="w-full h-full object-cover" alt="Upload preview" />
                         </div>
                         <button 
                           type="button" 
                           onClick={() => setChatImage(null)}
-                          className="p-1 text-rose-450 hover:bg-slate-800 rounded transition"
+                          className="p-1 text-rose-600 hover:bg-slate-200 rounded transition"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -1072,7 +1072,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     )}
 
                     <div className="flex items-center space-x-2">
-                      <label className="p-2.5 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-750 rounded-xl cursor-pointer transition flex-shrink-0" title="Attach Live Image">
+                      <label className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 rounded-xl cursor-pointer transition flex-shrink-0" title="Attach Live Image">
                         <Camera className="w-4.5 h-4.5" />
                         <input 
                           type="file" 
@@ -1086,7 +1086,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
                         placeholder="Type a message..."
-                        className="flex-grow bg-slate-850 border border-slate-750 text-slate-200 text-xs rounded-xl px-3.5 py-2.5 outline-none focus:border-sky-500 transition"
+                        className="flex-grow bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3.5 py-2.5 outline-none focus:border-sky-600 transition placeholder-slate-400"
                       />
                       <button 
                         type="submit"
@@ -1104,20 +1104,20 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
         {/* Telemetry warnings (low battery, etc.) */}
         {activeWidgets.battery && (
-          <section className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
-            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-              <ShieldAlert className="w-4.5 h-4.5 text-rose-500" />
+          <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 m-1">
+            <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
               <span>Location Security Alerts & Telemetry Anomalies</span>
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Warnings List */}
-              <div className="bg-slate-900/35 border border-slate-850 p-4 rounded-xl space-y-3 max-h-[160px] overflow-y-auto">
-                <span className="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Flagged Incidents</span>
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2 max-h-[160px] overflow-y-auto">
+                <span className="text-[10px] uppercase font-bold text-rose-700 block tracking-wider">Flagged Incidents</span>
                 <div className="space-y-2">
                   {officers.filter(fo => fo.isSuspicious || (fo.battery && fo.battery < 20)).map((fo, idx) => (
-                    <div key={idx} className="flex items-start space-x-2 text-[10px] text-slate-300">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div key={idx} className="flex items-start space-x-2 text-[10px] text-slate-800">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
                       <span>
                         <strong>{fo.name}</strong>:{' '}
                         {fo.isSuspicious ? (fo.suspiciousReason || 'Suspicious location anomalies detected.') : ''}
@@ -1132,28 +1132,28 @@ export default function SupervisorDashboard({ user, onLogout }) {
               </div>
 
               {/* Security info */}
-              <div className="bg-slate-900/35 border border-slate-850 p-4 rounded-xl text-[10.5px] text-slate-400 space-y-1">
-                <span className="font-bold text-slate-350 block">ℹ️ Location Security Notes:</span>
-                <p>Location checks utilize browser-based Geolocation API coordinates. Server-side security flags automated agents, stale GPS hardware timestamps, zero-drift mock location providers (frequently used in developer options spoofers), and network IP vs reported GPS mismatches.</p>
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-[10.5px] text-slate-600 space-y-1">
+                <span className="font-bold text-slate-900 block">ℹ️ Location Security Notes:</span>
+                <p>Location checks utilize browser-based Geolocation API coordinates. Server-side security flags automated agents, stale GPS hardware timestamps, zero-drift mock location providers, and network IP vs reported GPS mismatches.</p>
               </div>
             </div>
           </section>
         )}
 
         {/* Analytics Section */}
-        <section className="space-y-4">
-          <h2 className="text-base font-bold tracking-tight text-slate-200">System Visual Analytics</h2>
+        <section className="space-y-3 m-1">
+          <h2 className="text-sm font-bold tracking-tight text-slate-900 font-sans">System Visual Analytics</h2>
           <AnalyticsCharts officers={analytics.officers} attendanceSplit={analytics.attendanceSplit} />
         </section>
 
         {/* Widget 3: Announcements & Settings */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 m-1">
           
           {/* Announcements panel */}
           {activeWidgets.announcements && (
-            <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow flex flex-col space-y-4">
-              <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-                <BookOpen className="w-4.5 h-4.5 text-sky-400" />
+            <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col space-y-3">
+              <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+                <BookOpen className="w-4 h-4 text-sky-600" />
                 <span>Team Broadcast Announcements</span>
               </h3>
 
@@ -1164,7 +1164,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   placeholder="Announcement Title"
                   value={annTitle}
                   onChange={(e) => setAnnTitle(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3.5 text-xs text-slate-100 placeholder-slate-505 outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition"
                 />
                 <textarea
                   rows="2"
@@ -1172,92 +1172,92 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   placeholder="Type broadcast message content..."
                   value={annContent}
                   onChange={(e) => setAnnContent(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3.5 text-xs text-slate-100 placeholder-slate-505 outline-none transition resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition resize-none"
                 />
                 <button
                   type="submit"
                   disabled={submittingAnn}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition flex items-center space-x-1.5 self-end"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-800 text-white font-bold text-xs rounded-xl transition flex items-center space-x-1.5 self-end shadow-md"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-3.5 h-3.5 text-white" />
                   <span>Send Broadcast</span>
                 </button>
               </form>
 
               {/* Feed */}
-              <div className="border-t border-slate-800 pt-3 space-y-3 max-h-[140px] overflow-y-auto pr-1">
+              <div className="border-t border-slate-100 pt-3 space-y-3 max-h-[140px] overflow-y-auto pr-1">
                 {announcements.map((ann, idx) => (
-                  <div key={idx} className="bg-slate-900/25 p-3 border border-slate-850 rounded-xl text-left space-y-1">
+                  <div key={idx} className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-left space-y-1">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-slate-200">{ann.title}</h4>
-                      <span className="text-[9px] text-slate-500 font-mono">{new Date(ann.createdAt || ann.timestamp).toLocaleDateString()}</span>
+                      <h4 className="text-xs font-bold text-slate-900 font-sans">{ann.title}</h4>
+                      <span className="text-[9px] text-slate-900 font-mono font-semibold">{new Date(ann.createdAt || ann.timestamp).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">{ann.content}</p>
+                    <p className="text-[10px] text-slate-900 leading-relaxed font-medium">{ann.content}</p>
                   </div>
                 ))}
                 {announcements.length === 0 && (
-                  <div className="text-xs text-slate-500 italic text-center py-4">No broadcast history.</div>
+                  <div className="text-xs text-slate-900 italic text-center py-4 font-medium">No broadcast history.</div>
                 )}
               </div>
             </div>
           )}
 
           {/* Operational timing configurations */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
-            <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-              <Settings className="w-4.5 h-4.5 text-sky-400" />
+          <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
+            <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+              <Settings className="w-4 h-4 text-sky-600" />
               <span>Shift Timing Configurations</span>
             </h3>
 
-            <form onSubmit={handleSettingsSubmit} className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSettingsSubmit} className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400">Office Start Time</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Office Start Time</label>
                 <input
                   type="text"
                   placeholder="e.g. 09:00 AM"
                   value={settings.officeStart}
                   onChange={(e) => setSettings({ ...settings, officeStart: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400">Late Threshold</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Late Threshold</label>
                 <input
                   type="text"
                   placeholder="e.g. 09:30 AM"
                   value={settings.lateAfter}
                   onChange={(e) => setSettings({ ...settings, lateAfter: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400">Office End Time</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Office End Time</label>
                 <input
                   type="text"
                   placeholder="e.g. 06:00 PM"
                   value={settings.officeEnd}
                   onChange={(e) => setSettings({ ...settings, officeEnd: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400">Session Timeout (Mins)</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Session Timeout (Mins)</label>
                 <input
                   type="number"
                   placeholder="e.g. 30"
                   value={settings.sessionTimeout}
                   onChange={(e) => setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })}
-                  className="w-full bg-slate-900 border border-slate-850 focus:border-sky-500 rounded-xl py-2 px-3 text-xs text-slate-100 placeholder-slate-500 outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-sky-600 rounded-xl py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submittingSettings}
-                className="col-span-2 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center"
+                className="col-span-2 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-800 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center"
               >
                 {submittingSettings ? 'Saving...' : 'Save Shift Settings'}
               </button>
@@ -1266,17 +1266,17 @@ export default function SupervisorDashboard({ user, onLogout }) {
         </section>
 
         {/* Audit Trails Section */}
-        <section className="glass-panel p-5 rounded-2xl border border-slate-800 shadow space-y-4">
-          <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase flex items-center space-x-1.5">
-            <Award className="w-4.5 h-4.5 text-sky-400" />
+        <section className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 m-1">
+          <h3 className="font-bold text-xs tracking-wide text-slate-900 uppercase flex items-center space-x-1.5 font-sans">
+            <Award className="w-4 h-4 text-sky-600" />
             <span>Shift Audit Trail Log</span>
           </h3>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-bold tracking-wider">
-                  <th className="py-2.5 pr-4">User</th>
+                <tr className="border-b border-slate-200 text-slate-900 text-[10px] uppercase font-extrabold tracking-wider bg-slate-50">
+                  <th className="py-2.5 pr-4 pl-2">User</th>
                   <th className="py-2.5 px-4">Action</th>
                   <th className="py-2.5 px-4">Details</th>
                   <th className="py-2.5 px-4 hidden md:table-cell">IP Address</th>
@@ -1284,24 +1284,24 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <th className="py-2.5 pl-4">Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-850/60 text-slate-300">
+              <tbody className="divide-y divide-slate-200 text-slate-900">
                 {auditLogs.slice(0, 10).map((log, idx) => (
-                  <tr key={idx} className="hover:bg-slate-900/10">
-                    <td className="py-2.5 pr-4 font-semibold text-slate-200">{log.userId?.name || 'System'}</td>
+                  <tr key={idx} className="hover:bg-slate-100 transition">
+                    <td className="py-2.5 pr-4 pl-2 font-bold text-slate-900">{log.userId?.name || 'System'}</td>
                     <td className="py-2.5 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${log.action === 'Login' ? 'bg-sky-500/10 text-sky-450 border-sky-500/20' : log.action === 'Check-in' ? 'bg-emerald-500/10 text-emerald-450 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${log.action === 'Login' ? 'bg-sky-50 text-sky-700 border-sky-200' : log.action === 'Check-in' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-800 border-slate-200'}`}>
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-2.5 px-4 max-w-xs truncate" title={log.details}>{log.details}</td>
-                    <td className="py-2.5 px-4 font-mono text-[10px] text-slate-400 hidden md:table-cell">{log.ip}</td>
-                    <td className="py-2.5 px-4 text-slate-400 hidden lg:table-cell">{log.browser} / {log.device}</td>
-                    <td className="py-2.5 pl-4 font-mono text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</td>
+                    <td className="py-2.5 px-4 max-w-xs truncate font-medium text-slate-900" title={log.details}>{log.details}</td>
+                    <td className="py-2.5 px-4 font-mono text-[10px] text-slate-900 font-semibold hidden md:table-cell">{log.ip}</td>
+                    <td className="py-2.5 px-4 text-slate-900 font-medium hidden lg:table-cell">{log.browser} / {log.device}</td>
+                    <td className="py-2.5 pl-4 font-mono text-[10px] text-slate-900 font-semibold">{new Date(log.timestamp).toLocaleString()}</td>
                   </tr>
                 ))}
                 {auditLogs.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center py-6 text-slate-500 italic">No audit records logged.</td>
+                    <td colSpan="6" className="text-center py-6 text-slate-900 italic font-medium">No audit records logged.</td>
                   </tr>
                 )}
               </tbody>
@@ -1311,22 +1311,22 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
         {/* Field Officer Profile & Route Details Modal */}
         {isFoModalOpen && selectedFO && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+            <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn text-slate-900">
               {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 bg-slate-900 border-b border-slate-800 pr-16 sm:pr-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 bg-slate-50 border-b border-slate-200 pr-16 sm:pr-6">
                 <div className="flex items-start sm:items-center space-x-3">
-                  <div className="w-10 h-10 bg-sky-600/10 border border-sky-500/25 rounded-2xl flex items-center justify-center text-sky-400 flex-shrink-0">
-                    <Activity className="w-5 h-5 animate-pulse" />
+                  <div className="w-10 h-10 bg-sky-50 border border-sky-200 rounded-2xl flex items-center justify-center text-sky-600 flex-shrink-0">
+                    <Activity className="w-5 h-5 animate-pulse text-sky-600" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-100 flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-1.5 font-sans">
                       <span>{selectedFO.name}</span>
-                      <span className="text-[10px] text-slate-400 bg-slate-850 px-2 py-0.5 rounded font-mono border border-slate-800">@{selectedFO.username}</span>
+                      <span className="text-[10px] text-slate-900 bg-slate-100 px-2 py-0.5 rounded font-mono border border-slate-200 font-bold">@{selectedFO.username}</span>
                     </h3>
                     <div className="flex items-center space-x-2 mt-1">
-                      <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                      <span className="text-[11px] text-slate-400 font-semibold">Report Date:</span>
+                      <Calendar className="w-3.5 h-3.5 text-sky-600" />
+                      <span className="text-[11px] text-slate-900 font-bold">Report Date:</span>
                       <input
                         type="date"
                         value={selectedDate}
@@ -1334,14 +1334,14 @@ export default function SupervisorDashboard({ user, onLogout }) {
                           setSelectedDate(e.target.value);
                           setMapBoundsTrigger(prev => prev + 1);
                         }}
-                        className="bg-slate-950 border border-slate-700 text-slate-100 font-bold text-[11.5px] rounded-lg px-2.5 py-1 outline-none focus:border-sky-500 transition font-mono cursor-pointer"
+                        className="bg-white border border-slate-200 text-slate-900 font-bold text-[11.5px] rounded-lg px-2.5 py-1 outline-none focus:border-sky-600 transition font-mono cursor-pointer"
                       />
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsFoModalOpen(false)}
-                  className="absolute top-4.5 right-6 sm:relative sm:top-0 sm:right-0 p-2 text-slate-400 hover:text-slate-200 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl transition duration-150 flex-shrink-0"
+                  className="absolute top-4.5 right-6 sm:relative sm:top-0 sm:right-0 p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition duration-150 flex-shrink-0"
                   title="Close popup"
                 >
                   <X className="w-5 h-5" />
@@ -1349,14 +1349,14 @@ export default function SupervisorDashboard({ user, onLogout }) {
               </div>
 
               {/* Scrollable Content */}
-              <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-grow">
+              <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-grow text-slate-900">
                 {/* 1. Map container showing highlighted route stop */}
                 <div className="space-y-3 text-left">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
-                    <MapIcon className="w-4 h-4 text-sky-400" />
+                  <span className="text-[10px] uppercase font-bold text-slate-900 tracking-wider flex items-center gap-1">
+                    <MapIcon className="w-4 h-4 text-sky-600" />
                     <span>Highlighted Route Map & Replay</span>
                   </span>
-                  <div className="w-full h-[240px] rounded-2xl overflow-hidden border border-slate-800 relative bg-slate-950">
+                  <div className="w-full h-[240px] rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-50">
                     <MapComponent 
                       markers={mapMarkers} 
                       polyline={mapPolyline} 
@@ -1366,8 +1366,6 @@ export default function SupervisorDashboard({ user, onLogout }) {
                       selectedMarker={selectedMarkerDetails}
                     />
                   </div>
-
-
 
                   {/* Route Replay Player */}
                   <RouteReplay 
@@ -1379,32 +1377,32 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
                 {/* 2. Route Path History Timeline (Stops & Times) */}
                 <div className="space-y-2 text-left">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
-                    <Clock className="w-4 h-4 text-sky-400" />
+                  <span className="text-[10px] uppercase font-bold text-slate-900 tracking-wider flex items-center gap-1">
+                    <Clock className="w-4 h-4 text-sky-600" />
                     <span>Route Stop History & Timestamps</span>
                   </span>
-                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto bg-slate-950/40 p-3.5 rounded-2xl border border-slate-850">
+                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                     {selectedFoHistory.map((pt, i) => (
-                      <div key={i} className="flex justify-between text-[11px] text-slate-300 font-mono py-1 border-b border-slate-900/60 last:border-0">
-                        <span className="flex items-center gap-1.5 text-slate-405">
-                          <span className="w-2 h-2 rounded-full bg-sky-500/50" />
+                      <div key={i} className="flex justify-between text-[11px] text-slate-900 font-mono py-1 border-b border-slate-200 last:border-0 font-medium">
+                        <span className="flex items-center gap-1.5 text-slate-900">
+                          <span className="w-2 h-2 rounded-full bg-sky-600" />
                           <span>Lat: {pt.latitude.toFixed(5)}, Lng: {pt.longitude.toFixed(5)}</span>
                         </span>
-                        <span className="text-sky-400 font-semibold bg-sky-950/30 px-1.5 py-0.2 rounded border border-sky-900/30">
+                        <span className="text-sky-700 font-bold bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
                           {new Date(pt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                       </div>
                     ))}
                     {selectedFoHistory.length === 0 && (
-                      <div className="text-slate-500 text-xs italic py-4 text-center">No location signals recorded for this date.</div>
+                      <div className="text-slate-900 text-xs italic py-4 text-center font-medium">No location signals recorded for this date.</div>
                     )}
                   </div>
                 </div>
 
                 {/* 3. Logged Consumer Visits */}
                 <div className="space-y-3.5 text-left">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
-                    <Users className="w-4 h-4 text-sky-400" />
+                  <span className="text-[10px] uppercase font-bold text-slate-900 tracking-wider flex items-center gap-1">
+                    <Users className="w-4 h-4 text-sky-600" />
                     <span>Logged Consumer Visits Timeline ({selectedFoVisits.length})</span>
                   </span>
                   <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
@@ -1433,29 +1431,29 @@ export default function SupervisorDashboard({ user, onLogout }) {
                           }}
                           className={`flex items-start space-x-3.5 p-3.5 rounded-2xl border cursor-pointer transition relative ${
                             isSelected 
-                              ? 'border-sky-500 bg-sky-950/25 shadow-inner' 
-                              : 'bg-slate-950/30 border-slate-800 hover:border-sky-500/50 hover:bg-slate-900/40'
+                              ? 'border-sky-400 bg-sky-50 shadow-sm' 
+                              : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
-                          <span className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-md flex-shrink-0 border transition-all ${
+                          <span className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-sm flex-shrink-0 border transition-all ${
                             isSelected 
-                              ? 'bg-sky-600/20 border-sky-500 text-sky-400' 
-                              : 'bg-sky-600/15 border-sky-500/20 text-sky-400'
+                              ? 'bg-sky-600 border-sky-600 text-white' 
+                              : 'bg-sky-50 border-sky-200 text-sky-700'
                           }`}>
                             {idx + 1}
                           </span>
                           <div className="flex-grow space-y-1.5">
                             <div className="flex flex-wrap justify-between items-start gap-1.5">
-                              <h4 className={`text-[12px] font-bold transition-colors ${isSelected ? 'text-sky-400' : 'text-slate-200'}`}>{v.consumerName}</h4>
-                              <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800">
+                              <h4 className={`text-[12px] font-bold transition-colors ${isSelected ? 'text-sky-700' : 'text-slate-900'}`}>{v.consumerName}</h4>
+                              <span className="text-[10px] text-slate-900 font-mono font-bold bg-white px-2.5 py-0.5 rounded border border-slate-200">
                                 🕒 {new Date(v.timestamp).toLocaleTimeString()}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 leading-relaxed">
-                              <span className="text-slate-500 font-semibold">Address:</span> {v.consumerAddress}
+                            <p className="text-[11px] text-slate-900 leading-relaxed font-medium">
+                              <span className="text-slate-900 font-bold">Address:</span> {v.consumerAddress}
                             </p>
-                            <p className="text-[11px] text-sky-400 leading-relaxed">
-                              <span className="text-slate-500 font-semibold">GPS:</span> {v.detectedAddress}
+                            <p className="text-[11px] text-sky-700 leading-relaxed font-semibold">
+                              <span className="text-slate-900 font-bold">GPS:</span> {v.detectedAddress}
                             </p>
                             {v.comment && (
                               <p className="text-[10px] italic text-slate-350 bg-slate-900/60 p-2.5 border border-slate-800 rounded-xl mt-2 leading-relaxed">

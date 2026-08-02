@@ -50,7 +50,7 @@ export default function RouteReplay({ path = [], stops = [], onPositionChange })
 
   if (path.length === 0) {
     return (
-      <div className="glass-card p-4 rounded-xl text-center text-slate-400">
+      <div className="glass-card p-4 rounded-xl text-center text-slate-900 font-medium">
         No location logs available to replay for this date.
       </div>
     );
@@ -83,32 +83,32 @@ export default function RouteReplay({ path = [], stops = [], onPositionChange })
   };
 
   return (
-    <div className="glass-card p-4 rounded-xl border border-slate-700 bg-slate-900/60 shadow-xl space-y-4">
+    <div className="glass-card p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3 text-slate-900">
       {/* Playback Progress Telemetry */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-3 bg-slate-800/40 rounded-lg border border-slate-800">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-slate-400">Time</span>
-          <div className="text-sm font-semibold text-sky-400 font-mono">{timeStr}</div>
+          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-900">Time</span>
+          <div className="text-xs font-bold text-sky-700 font-mono">{timeStr}</div>
         </div>
         <div className="flex items-center space-x-2">
-          <Battery className="w-4 h-4 text-emerald-400" />
+          <Battery className="w-4 h-4 text-emerald-600" />
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-slate-400">Battery</span>
-            <div className="text-sm font-semibold">{activePoint.battery ?? '--'}%</div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-900">Battery</span>
+            <div className="text-xs font-bold text-slate-900">{activePoint.battery ?? '--'}%</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <Wifi className="w-4 h-4 text-sky-400" />
+          <Wifi className="w-4 h-4 text-sky-600" />
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-slate-400">Network</span>
-            <div className="text-sm font-semibold uppercase">{activePoint.network || 'Online'}</div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-900">Network</span>
+            <div className="text-xs font-bold uppercase text-slate-900">{activePoint.network || 'Online'}</div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <Navigation className="w-4 h-4 text-amber-400" />
+          <Navigation className="w-4 h-4 text-amber-600" />
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-slate-400">GPS Accuracy</span>
-            <div className="text-sm font-semibold font-mono">±{activePoint.accuracy ? Math.round(activePoint.accuracy) : '--'}m</div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-900">GPS Accuracy</span>
+            <div className="text-xs font-bold font-mono text-slate-900">±{activePoint.accuracy ? Math.round(activePoint.accuracy) : '--'}m</div>
           </div>
         </div>
       </div>
@@ -121,9 +121,9 @@ export default function RouteReplay({ path = [], stops = [], onPositionChange })
           max={path.length - 1} 
           value={currentIndex}
           onChange={handleSliderChange}
-          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+          className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
         />
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+        <div className="flex justify-between text-[10px] text-slate-900 font-mono font-semibold">
           <span>09:00 AM (Start)</span>
           <span>Point {currentIndex + 1} of {path.length}</span>
           <span>06:00 PM (End)</span>
@@ -136,19 +136,19 @@ export default function RouteReplay({ path = [], stops = [], onPositionChange })
           {/* Play/Pause */}
           <button 
             onClick={() => setIsPlaying(!isPlaying)}
-            className="p-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold transition shadow-md"
+            className="p-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold transition shadow-sm"
             title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+            {isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 fill-current text-white" />}
           </button>
 
           {/* Speed Selector */}
-          <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+          <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200">
             {[1, 2, 5, 10].map((s) => (
               <button
                 key={s}
                 onClick={() => setPlaybackSpeed(s)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${playbackSpeed === s ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-2 py-0.5 text-xs font-bold rounded-md transition ${playbackSpeed === s ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-900 hover:bg-slate-200'}`}
               >
                 {s}x
               </button>
@@ -157,23 +157,23 @@ export default function RouteReplay({ path = [], stops = [], onPositionChange })
         </div>
 
         {/* Status Indicator */}
-        <div className="text-xs text-slate-400 italic">
+        <div className="text-xs text-slate-900 font-medium italic">
           {isPlaying ? 'Replaying route...' : 'Paused'}
         </div>
       </div>
 
       {/* Quick Jump Stops */}
       {stops.length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-slate-800">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Jump to Visit Stops:</span>
+        <div className="space-y-1.5 pt-2 border-t border-slate-200">
+          <span className="text-[10px] uppercase font-bold text-slate-900 tracking-wider">Jump to Visit Stops:</span>
           <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto pr-1">
             {stops.map((stop, idx) => (
               <button
                 key={idx}
                 onClick={() => jumpToStop(stop)}
-                className="flex items-center space-x-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition border border-slate-700"
+                className="flex items-center space-x-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded text-xs transition border border-slate-200"
               >
-                <Landmark className="w-3 h-3 text-sky-400" />
+                <Landmark className="w-3 h-3 text-sky-600" />
                 <span>Stop {stop.index}: {stop.title}</span>
               </button>
             ))}

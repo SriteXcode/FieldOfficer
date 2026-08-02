@@ -46,21 +46,21 @@ export default function DashboardWidgets({ onWidgetsChange }) {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold shadow transition"
+        className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-lg text-xs font-semibold shadow-sm transition"
         title="Customize Dashboard Widgets"
       >
-        <LayoutGrid className="w-4 h-4 text-sky-400" />
+        <LayoutGrid className="w-4 h-4 text-sky-600" />
         <span className="hidden sm:inline">Customize Dashboard Widgets</span>
         <span className="sm:hidden">Widgets</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 glass-panel p-4 rounded-xl border border-slate-700 shadow-2xl z-50 space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Widget Settings</span>
+        <div className="absolute right-0 mt-2 w-64 glass-panel p-4 rounded-xl border border-slate-200 bg-white shadow-2xl z-50 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-900">Widget Settings</span>
             <button 
               onClick={resetWidgets} 
-              className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold"
+              className="text-[10px] text-sky-600 hover:text-sky-700 font-semibold"
             >
               Reset Defaults
             </button>
@@ -69,12 +69,12 @@ export default function DashboardWidgets({ onWidgetsChange }) {
             {widgets.map((widget) => (
               <div 
                 key={widget.id} 
-                className="flex items-center justify-between p-2 bg-slate-800/40 hover:bg-slate-850 rounded border border-slate-850"
+                className="flex items-center justify-between p-2 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200"
               >
-                <span className="text-xs font-medium text-slate-300">{widget.title}</span>
+                <span className="text-xs font-medium text-slate-800">{widget.title}</span>
                 <button
                   onClick={() => toggleWidget(widget.id)}
-                  className={`p-1.5 rounded transition ${widget.visible ? 'text-sky-400 hover:text-sky-300' : 'text-slate-500 hover:text-slate-400'}`}
+                  className={`p-1.5 rounded transition ${widget.visible ? 'text-sky-600 hover:text-sky-700' : 'text-slate-400 hover:text-slate-600'}`}
                   title={widget.visible ? 'Hide Widget' : 'Show Widget'}
                 >
                   {widget.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
